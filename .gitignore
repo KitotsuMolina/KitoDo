@@ -1,0 +1,10 @@
+node_modules
+.svelte-kit
+build
+
+src-tauri/target
+src-tauri/gen
+
+*.db
+*.db-shm
+*.db-wal

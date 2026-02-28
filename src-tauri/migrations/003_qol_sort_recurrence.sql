@@ -1,0 +1,4 @@
+ALTER TABLE projects ADD COLUMN sort_mode TEXT NOT NULL DEFAULT 'auto';
+
+ALTER TABLE tasks ADD COLUMN sort_index INTEGER NULL;
+ALTER TABLE tasks ADD COLUMN recurrence TEXT NULL;

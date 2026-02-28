@@ -1,0 +1,21 @@
+pkgbase = kitodo-git
+	pkgdesc = KitoDo - fast offline-first tasks app (Tauri + SvelteKit)
+	pkgver = 0.4.0.r0.g0000000
+	pkgrel = 1
+	url = https://github.com/your-user/kitodo
+	arch = x86_64
+	license = MIT
+	makedepends = git
+	makedepends = rust
+	makedepends = cargo
+	makedepends = nodejs
+	makedepends = pnpm
+	depends = webkit2gtk-4.1
+	provides = kitodo
+	conflicts = kitodo
+	source = git+https://github.com/your-user/kitodo.git
+	source = kitodo.desktop
+	sha256sums = SKIP
+	sha256sums = SKIP
+
+pkgname = kitodo-git

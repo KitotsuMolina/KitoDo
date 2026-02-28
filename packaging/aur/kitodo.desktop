@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KitoDo
+Comment=Fast launcher-style tasks app
+Exec=kitodo
+Icon=kitodo
+Terminal=false
+Categories=Utility;Office;

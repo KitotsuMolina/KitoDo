@@ -1,0 +1,33 @@
+:root {
+  --k-purple: #a60cdb;
+  --k-purple-2: #c04bff;
+  --k-bg: #0f0f14;
+  --k-panel: rgba(22, 22, 30, 0.72);
+  --k-border: rgba(192, 75, 255, 0.45);
+  --k-text: #ece8f4;
+  --k-muted: #9a90b4;
+  --k-radius: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(166, 12, 219, 0.22), transparent),
+    radial-gradient(1000px 500px at 100% 100%, rgba(192, 75, 255, 0.12), transparent),
+    var(--k-bg);
+  color: var(--k-text);
+}
+
+button,
+input {
+  font: inherit;
+}

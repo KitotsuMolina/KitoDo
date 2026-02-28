@@ -1,0 +1,37 @@
+# Maintainer: Your Name <you@example.com>
+pkgname=kitodo-git
+pkgver=0.4.0.r0.g0000000
+pkgrel=1
+pkgdesc="KitoDo - fast offline-first tasks app (Tauri + SvelteKit)"
+arch=('x86_64')
+url="https://github.com/your-user/kitodo"
+license=('MIT')
+depends=('webkit2gtk-4.1')
+makedepends=('git' 'rust' 'cargo' 'nodejs' 'pnpm')
+provides=('kitodo')
+conflicts=('kitodo')
+source=("git+$url.git"
+        "kitodo.desktop")
+sha256sums=('SKIP'
+            'SKIP')
+
+pkgver() {
+  cd "$srcdir/kitodo"
+  printf "0.4.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$srcdir/kitodo"
+  pnpm install --frozen-lockfile
+  pnpm build
+  cargo tauri build --manifest-path src-tauri/Cargo.toml
+}
+
+package() {
+  cd "$srcdir/kitodo"
+
+  install -Dm755 src-tauri/target/release/kitodo "$pkgdir/usr/bin/kitodo"
+  install -Dm755 src-tauri/target/release/kitodo-cli "$pkgdir/usr/bin/kitodo-cli"
+  install -Dm644 "$srcdir/kitodo.desktop" "$pkgdir/usr/share/applications/kitodo.desktop"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/kitodo/README.md"
+}
