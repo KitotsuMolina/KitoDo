@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.KitotsuMolina.KitoDo</id>
+  <name>KitoDo</name>
+  <summary>Launcher-style offline-first task manager</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="io.github.KitotsuMolina">
+    <name>KitotsuMolina</name>
+  </developer>
+  <launchable type="desktop-id">io.github.KitotsuMolina.KitoDo.desktop</launchable>
+  <description>
+    <p>
+      KitoDo is a fast offline-first task app built with Proper Tauri:
+      Rust + SQLite backend and SvelteKit + TypeScript frontend.
+    </p>
+    <p>
+      It includes quick capture, Inbox/Today/Upcoming views, recurrence-lite,
+      project sorting modes, and keyboard-first navigation.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/KitotsuMolina/KitoDo</url>
+  <url type="bugtracker">https://github.com/KitotsuMolina/KitoDo/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.4.0" date="2026-02-28" />
+  </releases>
+</component>

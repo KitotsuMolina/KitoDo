@@ -69,6 +69,37 @@ pnpm build
 pnpm run tauri:build
 ```
 
+## Flatpak
+
+Scaffold listo en:
+- `packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml`
+- `packaging/flatpak/io.github.KitotsuMolina.KitoDo.desktop`
+- `packaging/flatpak/io.github.KitotsuMolina.KitoDo.metainfo.xml`
+
+Build + install local:
+
+```bash
+flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml
+```
+
+Ejecutar app:
+
+```bash
+flatpak run io.github.KitotsuMolina.KitoDo
+```
+
+Comando CLI en sandbox:
+
+```bash
+flatpak run --command=kitodo-cli io.github.KitotsuMolina.KitoDo today --json
+```
+
+Si quieres lanzar con `kitodo` desde tu shell host, usa alias:
+
+```bash
+echo "alias kitodo='flatpak run io.github.KitotsuMolina.KitoDo'" >> ~/.bashrc
+```
+
 ## Base de datos
 
 Ruta de DB con `app_data_dir`:

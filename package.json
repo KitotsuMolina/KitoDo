@@ -8,9 +8,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "tauri:dev": "env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev",
-    "tauri:dev:x11": "env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_BACKEND=x11 tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev": "env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev -- --bin kitodo",
+    "tauri:dev:x11": "env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_BACKEND=x11 tauri dev -- --bin kitodo",
+    "tauri:build": "tauri build -- --bin kitodo"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0",
