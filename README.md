@@ -28,6 +28,80 @@ Instalar dependencias frontend:
 pnpm install
 ```
 
+## Instalación local desde este repositorio
+
+### Opción A: instalación nativa (host)
+
+Instalación rápida (recomendado):
+
+```bash
+./scripts/install-local.sh
+```
+
+Instalación manual:
+
+1. Clona el repo y entra al proyecto:
+
+```bash
+git clone https://github.com/KitotsuMolina/KitoDo.git
+cd KitoDo
+```
+
+2. Instala dependencias frontend:
+
+```bash
+pnpm install
+```
+
+3. Compila frontend y binarios release:
+
+```bash
+pnpm build
+cargo build --release --manifest-path src-tauri/Cargo.toml --bin kitodo --bin kitodo-cli
+```
+
+4. Instala los binarios en tu usuario:
+
+```bash
+install -Dm755 src-tauri/target/release/kitodo ~/.local/bin/kitodo
+install -Dm755 src-tauri/target/release/kitodo-cli ~/.local/bin/kitodo-cli
+```
+
+5. Asegura `~/.local/bin` en tu `PATH` (si aún no lo tienes) y ejecuta:
+
+```bash
+kitodo
+```
+
+### Opción B: instalación local con Flatpak
+
+1. Clona el repo y entra al proyecto:
+
+```bash
+git clone https://github.com/KitotsuMolina/KitoDo.git
+cd KitoDo
+```
+
+2. Construye e instala el Flatpak local:
+
+```bash
+flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml
+```
+
+3. Ejecuta:
+
+```bash
+flatpak run io.github.KitotsuMolina.KitoDo
+```
+
+## Desinstalación local (host)
+
+Si instalaste con `./scripts/install-local.sh`, puedes remover binarios con:
+
+```bash
+./scripts/uninstall-local.sh
+```
+
 Instalar Tauri CLI (elige una):
 
 ```bash
