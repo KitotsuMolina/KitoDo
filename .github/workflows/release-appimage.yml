@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version semver sin v (ej. 0.5.1)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -56,22 +61,39 @@ jobs:
         id: meta
         shell: bash
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          VERSION="${TAG#v}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            VERSION="${{ github.event.inputs.version }}"
+            if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Version invalida: ${VERSION}" >&2
+              exit 1
+            fi
+            TAG="v${VERSION}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+            VERSION="${TAG#v}"
+          fi
+
           APPIMAGE="$(find src-tauri/target/release/bundle/appimage -maxdepth 1 -type f -name '*.AppImage' | sort | tail -n 1)"
           if [[ -z "${APPIMAGE}" ]]; then
             echo "No AppImage found" >&2
             exit 1
           fi
+
+          RENAMED_DIR="dist/${VERSION}"
+          RENAMED_APPIMAGE="${RENAMED_DIR}/KitoDo_amd64.AppImage"
+          mkdir -p "${RENAMED_DIR}"
+          cp "${APPIMAGE}" "${RENAMED_APPIMAGE}"
+
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "appimage=${APPIMAGE}" >> "$GITHUB_OUTPUT"
+          echo "appimage=${RENAMED_APPIMAGE}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag }}
-          name: KitoDo ${{ steps.meta.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.meta.outputs.tag }}
           generate_release_notes: true
           files: |
             ${{ steps.meta.outputs.appimage }}
