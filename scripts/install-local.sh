@@ -4,11 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DIR="${HOME}/.local/bin"
 APP_DIR="${HOME}/.local/share/applications"
+DESKTOP_FILE_ID="io.github.KitotsuMolina.KitoDo.desktop"
 APPIMAGE_DIR="${HOME}/.local/share/kitodo"
 APPIMAGE_NAME="KitoDo.AppImage"
 APPIMAGE_TARGET="${APPIMAGE_DIR}/${APPIMAGE_NAME}"
 ICON_DIR="${HOME}/.local/share/icons/hicolor/512x512/apps"
 PIXMAP_DIR="${HOME}/.local/share/pixmaps"
+ICON_TARGET="${ICON_DIR}/kitodo.png"
+ICON_TARGET_REVERSE_DNS="${ICON_DIR}/io.github.KitotsuMolina.KitoDo.png"
+PIXMAP_TARGET="${PIXMAP_DIR}/kitodo.png"
 ICON_SRC="${ROOT_DIR}/assets/kitodo-icon.png"
 PREPARE_SCRIPT="${ROOT_DIR}/packaging/flatpak/prepare.sh"
 BUILD_SCRIPT="${ROOT_DIR}/scripts/build-appimage.sh"
@@ -64,8 +68,9 @@ chmod +x "${BIN_DIR}/kitodo-cli"
 if [[ -f "${ICON_SRC}" ]]; then
   echo "[kitodo] Instalando icono..."
   install -d "${ICON_DIR}" "${PIXMAP_DIR}"
-  install -m644 "${ICON_SRC}" "${ICON_DIR}/kitodo.png"
-  install -m644 "${ICON_SRC}" "${PIXMAP_DIR}/kitodo.png"
+  install -m644 "${ICON_SRC}" "${ICON_TARGET}"
+  install -m644 "${ICON_SRC}" "${ICON_TARGET_REVERSE_DNS}"
+  install -m644 "${ICON_SRC}" "${PIXMAP_TARGET}"
 
   if [[ -x "${PREPARE_SCRIPT}" ]] && command -v magick >/dev/null 2>&1; then
     echo "[kitodo] Generando iconos 64/128/256 con prepare.sh..."
@@ -78,10 +83,16 @@ if [[ -f "${ICON_SRC}" ]]; then
 
     install -m644 "${ROOT_DIR}/packaging/flatpak/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png" \
       "${HOME}/.local/share/icons/hicolor/64x64/apps/kitodo.png"
+    install -m644 "${ROOT_DIR}/packaging/flatpak/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png" \
+      "${HOME}/.local/share/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png"
     install -m644 "${ROOT_DIR}/packaging/flatpak/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png" \
       "${HOME}/.local/share/icons/hicolor/128x128/apps/kitodo.png"
+    install -m644 "${ROOT_DIR}/packaging/flatpak/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png" \
+      "${HOME}/.local/share/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png"
     install -m644 "${ROOT_DIR}/packaging/flatpak/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png" \
       "${HOME}/.local/share/icons/hicolor/256x256/apps/kitodo.png"
+    install -m644 "${ROOT_DIR}/packaging/flatpak/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png" \
+      "${HOME}/.local/share/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png"
   fi
 else
   echo "[kitodo] Aviso: no se encontró icono en ${ICON_SRC}"
@@ -89,16 +100,19 @@ fi
 
 echo "[kitodo] Creando desktop entry..."
 install -d "${APP_DIR}"
-cat > "${APP_DIR}/kitodo.desktop" <<'EOF'
+cat > "${APP_DIR}/${DESKTOP_FILE_ID}" <<EOF
 [Desktop Entry]
 Type=Application
 Name=KitoDo
 Comment=Fast launcher-style tasks app
+TryExec=kitodo
 Exec=kitodo
-Icon=kitodo
+Icon=io.github.KitotsuMolina.KitoDo
 Terminal=false
 Categories=Utility;Office;Productivity;
 StartupNotify=true
+StartupWMClass=kitodo
+X-GNOME-WMClass=kitodo
 EOF
 
 if command -v update-desktop-database >/dev/null 2>&1; then

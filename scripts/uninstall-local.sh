@@ -5,10 +5,14 @@ BIN_DIR="${HOME}/.local/bin"
 APP_DIR="${HOME}/.local/share/applications"
 APPIMAGE_FILE="${HOME}/.local/share/kitodo/KitoDo.AppImage"
 ICON_FILE="${HOME}/.local/share/icons/hicolor/512x512/apps/kitodo.png"
+ICON_FILE_REVERSE_DNS="${HOME}/.local/share/icons/hicolor/512x512/apps/io.github.KitotsuMolina.KitoDo.png"
 PIXMAP_FILE="${HOME}/.local/share/pixmaps/kitodo.png"
 ICON_64="${HOME}/.local/share/icons/hicolor/64x64/apps/kitodo.png"
 ICON_128="${HOME}/.local/share/icons/hicolor/128x128/apps/kitodo.png"
 ICON_256="${HOME}/.local/share/icons/hicolor/256x256/apps/kitodo.png"
+ICON_64_REVERSE_DNS="${HOME}/.local/share/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png"
+ICON_128_REVERSE_DNS="${HOME}/.local/share/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png"
+ICON_256_REVERSE_DNS="${HOME}/.local/share/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png"
 REMOVED=0
 
 if [[ -f "${BIN_DIR}/kitodo" ]]; then
@@ -35,9 +39,21 @@ if [[ -f "${APP_DIR}/kitodo.desktop" ]]; then
   REMOVED=1
 fi
 
+if [[ -f "${APP_DIR}/io.github.KitotsuMolina.KitoDo.desktop" ]]; then
+  rm -f "${APP_DIR}/io.github.KitotsuMolina.KitoDo.desktop"
+  echo "[kitodo] Eliminado: ${APP_DIR}/io.github.KitotsuMolina.KitoDo.desktop"
+  REMOVED=1
+fi
+
 if [[ -f "${ICON_FILE}" ]]; then
   rm -f "${ICON_FILE}"
   echo "[kitodo] Eliminado: ${ICON_FILE}"
+  REMOVED=1
+fi
+
+if [[ -f "${ICON_FILE_REVERSE_DNS}" ]]; then
+  rm -f "${ICON_FILE_REVERSE_DNS}"
+  echo "[kitodo] Eliminado: ${ICON_FILE_REVERSE_DNS}"
   REMOVED=1
 fi
 
@@ -53,15 +69,33 @@ if [[ -f "${ICON_64}" ]]; then
   REMOVED=1
 fi
 
+if [[ -f "${ICON_64_REVERSE_DNS}" ]]; then
+  rm -f "${ICON_64_REVERSE_DNS}"
+  echo "[kitodo] Eliminado: ${ICON_64_REVERSE_DNS}"
+  REMOVED=1
+fi
+
 if [[ -f "${ICON_128}" ]]; then
   rm -f "${ICON_128}"
   echo "[kitodo] Eliminado: ${ICON_128}"
   REMOVED=1
 fi
 
+if [[ -f "${ICON_128_REVERSE_DNS}" ]]; then
+  rm -f "${ICON_128_REVERSE_DNS}"
+  echo "[kitodo] Eliminado: ${ICON_128_REVERSE_DNS}"
+  REMOVED=1
+fi
+
 if [[ -f "${ICON_256}" ]]; then
   rm -f "${ICON_256}"
   echo "[kitodo] Eliminado: ${ICON_256}"
+  REMOVED=1
+fi
+
+if [[ -f "${ICON_256_REVERSE_DNS}" ]]; then
+  rm -f "${ICON_256_REVERSE_DNS}"
+  echo "[kitodo] Eliminado: ${ICON_256_REVERSE_DNS}"
   REMOVED=1
 fi
 
