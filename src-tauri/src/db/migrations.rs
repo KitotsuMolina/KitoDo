@@ -1,12 +1,14 @@
 use rusqlite::Connection;
 
-const MIGRATIONS: [&str; 6] = [
+const MIGRATIONS: [&str; 8] = [
     include_str!("../../migrations/001_init.sql"),
     include_str!("../../migrations/002_indexes.sql"),
     include_str!("../../migrations/003_qol_sort_recurrence.sql"),
     include_str!("../../migrations/004_qol_sort_recurrence_indexes.sql"),
     include_str!("../../migrations/005_rebuild_tasks_fk.sql"),
     include_str!("../../migrations/006_indexes_hardening.sql"),
+    include_str!("../../migrations/007_github_local_first.sql"),
+    include_str!("../../migrations/008_github_local_first_indexes.sql"),
 ];
 
 pub fn pending_versions(conn: &Connection) -> rusqlite::Result<Vec<i64>> {

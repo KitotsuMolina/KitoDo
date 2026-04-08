@@ -14,6 +14,81 @@ pub struct TaskDTO {
     pub updated_at: String,
     pub recurrence: Option<String>,
     pub sort_index: Option<i64>,
+    pub external_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubAccountDTO {
+    pub account_id: String,
+    pub username: String,
+    pub token_kind: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubSettingsDTO {
+    pub account_id: String,
+    pub enabled: bool,
+    pub sync_interval_sec: i64,
+    pub import_pr_reviews: bool,
+    pub import_assigned_issues: bool,
+    pub import_notifications: bool,
+    pub default_project_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoSubDTO {
+    pub id: String,
+    pub account_id: String,
+    pub owner: String,
+    pub repo: String,
+    pub enabled: bool,
+    pub last_synced_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubSyncResultDTO {
+    pub fetched: i64,
+    pub created_tasks: i64,
+    pub updated_tasks: i64,
+    pub closed_tasks: i64,
+    pub errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubStatusDTO {
+    pub account_id: String,
+    pub username: String,
+    pub enabled: bool,
+    pub last_sync_at: Option<String>,
+    pub last_error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RepoDTO {
+    pub owner: String,
+    pub repo: String,
+    pub full_name: String,
+    pub private: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GithubExternalItemDTO {
+    pub id: String,
+    pub kind: String,
+    pub url: String,
+    pub title: String,
+    pub state: String,
+    pub repo_full: String,
+    pub number: Option<i64>,
+    pub updated_at_ext: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

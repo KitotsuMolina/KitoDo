@@ -4,6 +4,17 @@
   import { onMount, tick } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
+    githubAddRepoSubscription,
+    githubConnect,
+    githubDisconnect,
+    githubGetSettings,
+    githubGetStatus,
+    githubListAccounts,
+    githubListRepoSubscriptions,
+    githubSetSettings,
+    githubSyncNow,
+    githubToggleRepoSubscription,
+    githubRemoveRepoSubscription,
     initDb,
     listInbox,
     listLabels,
@@ -24,8 +35,12 @@
     updateTaskPriority,
     updateTaskRecurrence,
     updateTaskTitle,
+    type GithubAccountDTO,
+    type GithubSettingsDTO,
+    type GithubStatusDTO,
     type LabelDTO,
     type ProjectDTO,
+    type RepoSubDTO,
     type TaskDTO
   } from '$lib/api/tauri';
 
@@ -103,6 +118,12 @@
   let projectMenuRef: HTMLDivElement | null = null;
   let datePickerRef: HTMLDivElement | null = null;
   let datePickerMenuRef: HTMLDivElement | null = null;
+  let githubAccountDropdownRef: HTMLDivElement | null = null;
+  let githubIntervalDropdownRef: HTMLDivElement | null = null;
+  let githubProjectDropdownRef: HTMLDivElement | null = null;
+  let githubAccountMenuRef: HTMLDivElement | null = null;
+  let githubIntervalMenuRef: HTMLDivElement | null = null;
+  let githubProjectMenuRef: HTMLDivElement | null = null;
 
   let menuTaskId: string | null = null;
   let projectDraft = '';
@@ -120,6 +141,22 @@
 
   let dragTaskId: string | null = null;
   let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let githubAccounts: GithubAccountDTO[] = [];
+  let githubSettings: GithubSettingsDTO | null = null;
+  let githubRepoSubs: RepoSubDTO[] = [];
+  let githubStatus: GithubStatusDTO | null = null;
+  let selectedGithubAccountId: string | null = null;
+  let githubTokenInput = '';
+  let githubRepoInput = '';
+  let githubBusy = false;
+  let githubMessage = '';
+  let githubPanelOpen = false;
+  let githubAccountDropdownOpen = false;
+  let githubIntervalDropdownOpen = false;
+  let githubProjectDropdownOpen = false;
+  let githubAccountMenuOpenUp = false;
+  let githubIntervalMenuOpenUp = false;
+  let githubProjectMenuOpenUp = false;
 
   $: selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
   $: isProjectView = selectedProjectId !== null;
@@ -165,6 +202,14 @@
   $: if (keyboardSelectedTaskId && !keyboardTasks.some((task) => task.id === keyboardSelectedTaskId)) {
     keyboardSelectedTaskId = keyboardTasks[0]?.id ?? null;
   }
+  $: selectedGithubAccountLabel =
+    githubAccounts.find((a) => a.accountId === selectedGithubAccountId)?.username ?? 'Seleccionar cuenta';
+  $: selectedGithubIntervalLabel = githubSettings
+    ? ({ 60: '1m', 300: '5m', 600: '10m', 1800: '30m' }[githubSettings.syncIntervalSec] ?? `${githubSettings.syncIntervalSec}s`)
+    : '5m';
+  $: selectedGithubProjectLabel = githubSettings?.defaultProjectId
+    ? `@${projects.find((p) => p.id === (githubSettings?.defaultProjectId ?? ''))?.name ?? 'Proyecto'}`
+    : 'GitHub Inbox (auto)';
 
   function mergeUniqueTasks(groups: TaskDTO[][]): TaskDTO[] {
     const map = new Map<string, TaskDTO>();
@@ -245,11 +290,37 @@
     try {
       await initDb();
       await refreshAll();
+      await refreshGithubState();
     } catch (e) {
       error = String(e);
     } finally {
       loading = false;
     }
+  }
+
+  async function refreshGithubState() {
+    githubAccounts = await githubListAccounts();
+    if (githubAccounts.length === 0) {
+      selectedGithubAccountId = null;
+      githubSettings = null;
+      githubRepoSubs = [];
+      githubStatus = null;
+      return;
+    }
+
+    if (!selectedGithubAccountId || !githubAccounts.some((a) => a.accountId === selectedGithubAccountId)) {
+      selectedGithubAccountId = githubAccounts[0].accountId;
+    }
+
+    if (!selectedGithubAccountId) return;
+    const [settings, subs, status] = await Promise.all([
+      githubGetSettings(selectedGithubAccountId),
+      githubListRepoSubscriptions(selectedGithubAccountId),
+      githubGetStatus(selectedGithubAccountId)
+    ]);
+    githubSettings = settings;
+    githubRepoSubs = subs;
+    githubStatus = status;
   }
 
   async function refreshAll() {
@@ -286,6 +357,123 @@
       return;
     }
     projectTasks = await listProjectTasks(selectedProjectId, showDone);
+  }
+
+  async function onGithubConnect() {
+    if (!githubTokenInput.trim()) return;
+    githubBusy = true;
+    githubMessage = '';
+    try {
+      const account = await githubConnect(githubTokenInput.trim());
+      selectedGithubAccountId = account.accountId;
+      githubTokenInput = '';
+      await refreshGithubState();
+      githubMessage = `Conectado como ${account.username}`;
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function onGithubDisconnect() {
+    if (!selectedGithubAccountId) return;
+    githubBusy = true;
+    githubMessage = '';
+    try {
+      await githubDisconnect(selectedGithubAccountId);
+      await refreshGithubState();
+      githubMessage = 'Cuenta desconectada';
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function onGithubSyncNow() {
+    if (!selectedGithubAccountId) return;
+    githubBusy = true;
+    githubMessage = '';
+    try {
+      const result = await githubSyncNow(selectedGithubAccountId);
+      githubMessage = `Sync: +${result.createdTasks} nuevas, ${result.updatedTasks} actualizadas, ${result.closedTasks} cerradas`;
+      await refreshAll();
+      await refreshGithubState();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function onGithubAddRepo() {
+    if (!selectedGithubAccountId) return;
+    const value = githubRepoInput.trim();
+    if (!value.includes('/')) {
+      error = 'Formato repo inválido. Usa owner/repo';
+      return;
+    }
+    const [owner, repo] = value.split('/', 2);
+    if (!owner || !repo) {
+      error = 'Formato repo inválido. Usa owner/repo';
+      return;
+    }
+
+    githubBusy = true;
+    try {
+      await githubAddRepoSubscription(selectedGithubAccountId, owner, repo);
+      githubRepoInput = '';
+      await refreshGithubState();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function onGithubToggleRepo(sub: RepoSubDTO) {
+    githubBusy = true;
+    try {
+      await githubToggleRepoSubscription(sub.id, !sub.enabled);
+      await refreshGithubState();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function onGithubRemoveRepo(sub: RepoSubDTO) {
+    githubBusy = true;
+    try {
+      await githubRemoveRepoSubscription(sub.id);
+      await refreshGithubState();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
+  }
+
+  async function onGithubUpdateSettings(patch: {
+    enabled?: boolean;
+    syncIntervalSec?: number;
+    importPrReviews?: boolean;
+    importAssignedIssues?: boolean;
+    importNotifications?: boolean;
+    defaultProjectId?: string | null;
+  }) {
+    if (!selectedGithubAccountId) return;
+    githubBusy = true;
+    try {
+      githubSettings = await githubSetSettings(selectedGithubAccountId, patch);
+      await refreshGithubState();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      githubBusy = false;
+    }
   }
 
   function onSearchInput() {
@@ -563,6 +751,48 @@
       projectMenuOpenUp = shouldOpenMenuUp(projectDropdownRef, projectMenuRef);
     } else {
       projectMenuOpenUp = false;
+    }
+  }
+
+  async function toggleGithubAccountDropdown() {
+    githubAccountDropdownOpen = !githubAccountDropdownOpen;
+    githubIntervalDropdownOpen = false;
+    githubProjectDropdownOpen = false;
+    githubIntervalMenuOpenUp = false;
+    githubProjectMenuOpenUp = false;
+    if (githubAccountDropdownOpen) {
+      await tick();
+      githubAccountMenuOpenUp = shouldOpenMenuUp(githubAccountDropdownRef, githubAccountMenuRef);
+    } else {
+      githubAccountMenuOpenUp = false;
+    }
+  }
+
+  async function toggleGithubIntervalDropdown() {
+    githubIntervalDropdownOpen = !githubIntervalDropdownOpen;
+    githubAccountDropdownOpen = false;
+    githubProjectDropdownOpen = false;
+    githubAccountMenuOpenUp = false;
+    githubProjectMenuOpenUp = false;
+    if (githubIntervalDropdownOpen) {
+      await tick();
+      githubIntervalMenuOpenUp = shouldOpenMenuUp(githubIntervalDropdownRef, githubIntervalMenuRef);
+    } else {
+      githubIntervalMenuOpenUp = false;
+    }
+  }
+
+  async function toggleGithubProjectDropdown() {
+    githubProjectDropdownOpen = !githubProjectDropdownOpen;
+    githubAccountDropdownOpen = false;
+    githubIntervalDropdownOpen = false;
+    githubAccountMenuOpenUp = false;
+    githubIntervalMenuOpenUp = false;
+    if (githubProjectDropdownOpen) {
+      await tick();
+      githubProjectMenuOpenUp = shouldOpenMenuUp(githubProjectDropdownRef, githubProjectMenuRef);
+    } else {
+      githubProjectMenuOpenUp = false;
     }
   }
 
@@ -854,6 +1084,12 @@
           recurrenceDropdownOpen = false;
           projectDropdownOpen = false;
           datePickerOpen = false;
+          githubAccountDropdownOpen = false;
+          githubIntervalDropdownOpen = false;
+          githubProjectDropdownOpen = false;
+          githubAccountMenuOpenUp = false;
+          githubIntervalMenuOpenUp = false;
+          githubProjectMenuOpenUp = false;
           orderMenuOpenUp = false;
           recurrenceMenuOpenUp = false;
           projectMenuOpenUp = false;
@@ -887,6 +1123,12 @@
         recurrenceDropdownOpen = false;
         projectDropdownOpen = false;
         datePickerOpen = false;
+        githubAccountDropdownOpen = false;
+        githubIntervalDropdownOpen = false;
+        githubProjectDropdownOpen = false;
+        githubAccountMenuOpenUp = false;
+        githubIntervalMenuOpenUp = false;
+        githubProjectMenuOpenUp = false;
         orderMenuOpenUp = false;
         recurrenceMenuOpenUp = false;
         projectMenuOpenUp = false;
@@ -946,6 +1188,188 @@
               #{label.name}
             </button>
           {/each}
+        </div>
+
+        <div class="side-block github-block">
+          <h3>GitHub</h3>
+          <button on:click={() => (githubPanelOpen = !githubPanelOpen)}>
+            {githubPanelOpen ? 'Ocultar panel' : 'Mostrar panel'}
+          </button>
+          {#if githubPanelOpen}
+            {#if githubAccounts.length === 0}
+              <input
+                placeholder="ghp_..."
+                bind:value={githubTokenInput}
+                type="password"
+              />
+              <button disabled={githubBusy} on:click={onGithubConnect}>Conectar</button>
+              <small>PAT classic recomendado para notifications.</small>
+            {:else}
+              <div class="context-dropdown" bind:this={githubAccountDropdownRef}>
+                <button
+                  class="context-trigger"
+                  class:open={githubAccountDropdownOpen}
+                  on:click={toggleGithubAccountDropdown}
+                >
+                  {selectedGithubAccountLabel}
+                  <span class="order-chevron">▾</span>
+                </button>
+                {#if githubAccountDropdownOpen}
+                  <div class="context-menu" class:open-up={githubAccountMenuOpenUp} bind:this={githubAccountMenuRef}>
+                    {#each githubAccounts as account}
+                      <button
+                        class:active={selectedGithubAccountId === account.accountId}
+                        on:click={async () => {
+                          selectedGithubAccountId = account.accountId;
+                          githubAccountDropdownOpen = false;
+                          githubAccountMenuOpenUp = false;
+                          await refreshGithubState();
+                        }}
+                      >
+                        {account.username} ({account.tokenKind})
+                      </button>
+                    {/each}
+                  </div>
+                {/if}
+              </div>
+
+              {#if githubSettings}
+                <label class="gh-inline">
+                  <input
+                    type="checkbox"
+                    checked={githubSettings.enabled}
+                    on:change={(e) => onGithubUpdateSettings({ enabled: (e.currentTarget as HTMLInputElement).checked })}
+                  />
+                  Auto sync
+                </label>
+                <label class="gh-inline">
+                  <span>Intervalo</span>
+                  <div class="context-dropdown" bind:this={githubIntervalDropdownRef}>
+                    <button
+                      class="context-trigger"
+                      class:open={githubIntervalDropdownOpen}
+                      on:click={toggleGithubIntervalDropdown}
+                    >
+                      {selectedGithubIntervalLabel}
+                      <span class="order-chevron">▾</span>
+                    </button>
+                    {#if githubIntervalDropdownOpen}
+                      <div class="context-menu" class:open-up={githubIntervalMenuOpenUp} bind:this={githubIntervalMenuRef}>
+                        {#each [
+                          { value: 60, label: '1m' },
+                          { value: 300, label: '5m' },
+                          { value: 600, label: '10m' },
+                          { value: 1800, label: '30m' }
+                        ] as opt}
+                          <button
+                            class:active={githubSettings.syncIntervalSec === opt.value}
+                            on:click={() => {
+                              githubIntervalDropdownOpen = false;
+                              githubIntervalMenuOpenUp = false;
+                              onGithubUpdateSettings({ syncIntervalSec: opt.value });
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </label>
+                <label class="gh-inline">
+                  <input
+                    type="checkbox"
+                    checked={githubSettings.importPrReviews}
+                    on:change={(e) => onGithubUpdateSettings({ importPrReviews: (e.currentTarget as HTMLInputElement).checked })}
+                  />
+                  PR review
+                </label>
+                <label class="gh-inline">
+                  <input
+                    type="checkbox"
+                    checked={githubSettings.importAssignedIssues}
+                    on:change={(e) => onGithubUpdateSettings({ importAssignedIssues: (e.currentTarget as HTMLInputElement).checked })}
+                  />
+                  Issues assigned
+                </label>
+                <label class="gh-inline">
+                  <input
+                    type="checkbox"
+                    checked={githubSettings.importNotifications}
+                    on:change={(e) => onGithubUpdateSettings({ importNotifications: (e.currentTarget as HTMLInputElement).checked })}
+                  />
+                  Notifications
+                </label>
+
+                <label class="gh-inline">
+                  <span>Proyecto destino</span>
+                  <div class="context-dropdown" bind:this={githubProjectDropdownRef}>
+                    <button
+                      class="context-trigger"
+                      class:open={githubProjectDropdownOpen}
+                      on:click={toggleGithubProjectDropdown}
+                    >
+                      {selectedGithubProjectLabel}
+                      <span class="order-chevron">▾</span>
+                    </button>
+                    {#if githubProjectDropdownOpen}
+                      <div class="context-menu" class:open-up={githubProjectMenuOpenUp} bind:this={githubProjectMenuRef}>
+                        <button
+                          class:active={!githubSettings.defaultProjectId}
+                          on:click={() => {
+                            githubProjectDropdownOpen = false;
+                            githubProjectMenuOpenUp = false;
+                            onGithubUpdateSettings({ defaultProjectId: null });
+                          }}
+                        >
+                          GitHub Inbox (auto)
+                        </button>
+                        {#each projects as project}
+                          <button
+                            class:active={githubSettings.defaultProjectId === project.id}
+                            on:click={() => {
+                              githubProjectDropdownOpen = false;
+                              githubProjectMenuOpenUp = false;
+                              onGithubUpdateSettings({ defaultProjectId: project.id });
+                            }}
+                          >
+                            @{project.name}
+                          </button>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                </label>
+              {/if}
+
+              <div class="gh-actions">
+                <button disabled={githubBusy} on:click={onGithubSyncNow}>Sync now</button>
+                <button disabled={githubBusy} on:click={onGithubDisconnect}>Desconectar</button>
+              </div>
+
+              <div class="gh-add-repo">
+                <input placeholder="owner/repo" bind:value={githubRepoInput} />
+                <button disabled={githubBusy} on:click={onGithubAddRepo}>Add</button>
+              </div>
+              <div class="gh-repos">
+                {#each githubRepoSubs as sub}
+                  <div class="gh-repo-item">
+                    <span>{sub.owner}/{sub.repo}</span>
+                    <div class="gh-actions">
+                      <button on:click={() => onGithubToggleRepo(sub)}>{sub.enabled ? 'Off' : 'On'}</button>
+                      <button on:click={() => onGithubRemoveRepo(sub)}>✕</button>
+                    </div>
+                  </div>
+                {/each}
+              </div>
+              {#if githubStatus}
+                <small>Last sync: {githubStatus.lastSyncAt ?? 'never'}</small>
+              {/if}
+            {/if}
+            {#if githubMessage}
+              <small>{githubMessage}</small>
+            {/if}
+          {/if}
         </div>
 
         <button class="clear-filters" on:click={clearFilters}>Limpiar filtros</button>
@@ -1444,6 +1868,9 @@
             </div>
 
             <button class="danger" on:click={() => onDeleteTask(selectedMenuTask.id)}>Eliminar</button>
+            {#if selectedMenuTask.externalUrl}
+              <button on:click={() => window.open(selectedMenuTask.externalUrl!, '_blank')}>Abrir en GitHub</button>
+            {/if}
           {:else}
             <h3>Panel de tarea</h3>
             <p class="context-hint">Selecciona una tarea con `⋯` para editar prioridad, fecha, recurrencia, proyecto o eliminar.</p>
@@ -1486,7 +1913,7 @@
     height: 100vh;
     display: grid;
     place-items: stretch;
-    padding: 12px;
+    padding: 0;
     position: relative;
   }
 
@@ -1494,7 +1921,7 @@
     width: 100%;
     height: 100%;
     min-height: 0;
-    border-radius: var(--k-radius);
+    border-radius: 0;
     border: 1px solid var(--k-border);
     background: var(--k-panel);
     backdrop-filter: blur(16px);
@@ -1558,6 +1985,55 @@
   .clear-filters:hover {
     border-color: rgba(192, 75, 255, 0.66);
     box-shadow: 0 0 10px rgba(192, 75, 255, 0.24);
+  }
+
+  .side-block input {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--k-text);
+    padding: 6px 8px;
+  }
+
+  .github-block {
+    gap: 8px;
+  }
+
+  .gh-inline {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--k-muted);
+  }
+
+  .gh-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .gh-add-repo {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 6px;
+  }
+
+  .gh-repos {
+    display: grid;
+    gap: 6px;
+    max-height: 150px;
+    overflow: auto;
+  }
+
+  .gh-repo-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    align-items: center;
+    font-size: 0.78rem;
+    color: var(--k-text);
   }
 
   .header {
@@ -2423,7 +2899,7 @@
 
   @media (max-width: 620px) {
     .shell {
-      padding: 12px;
+      padding: 0;
     }
 
     .panel {

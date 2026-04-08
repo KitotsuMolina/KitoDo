@@ -22,7 +22,8 @@ SELECT
   COALESCE(GROUP_CONCAT(DISTINCT l.name), '') AS labels_csv,
   t.updated_at,
   t.recurrence,
-  t.sort_index
+  t.sort_index,
+  t.external_url
 FROM tasks t
 LEFT JOIN projects p ON p.id = t.project_id
 LEFT JOIN task_labels tl ON tl.task_id = t.id
@@ -40,7 +41,8 @@ GROUP BY
   p.name,
   t.updated_at,
   t.recurrence,
-  t.sort_index
+  t.sort_index,
+  t.external_url
 ";
 
 pub fn init_db(db_path: &Path) -> Result<()> {
@@ -474,6 +476,12 @@ pub fn update_task_title(db_path: &Path, id: &str, title: &str) -> Result<TaskDT
         return Err(anyhow!("No existe la tarea con id {id}"));
     }
 
+    // If this task is linked to an external item, preserve user-custom title on future syncs.
+    conn.execute(
+        "UPDATE task_external_links SET user_modified_title = 1 WHERE task_id = ?1",
+        params![id],
+    )?;
+
     get_task_by_id(&conn, id)
 }
 
@@ -677,6 +685,7 @@ fn map_task_dto(row: &rusqlite::Row<'_>) -> rusqlite::Result<TaskDTO> {
         updated_at: row.get(8)?,
         recurrence: row.get(9)?,
         sort_index: row.get(10)?,
+        external_url: row.get(11)?,
     })
 }
 

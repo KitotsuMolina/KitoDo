@@ -33,6 +33,9 @@ modules:
       - install -Dm755 src-tauri/target/release/kitodo-cli /app/bin/kitodo-cli
       - install -Dm644 packaging/flatpak/io.github.KitotsuMolina.KitoDo.desktop /app/share/applications/io.github.KitotsuMolina.KitoDo.desktop
       - install -Dm644 packaging/flatpak/io.github.KitotsuMolina.KitoDo.metainfo.xml /app/share/metainfo/io.github.KitotsuMolina.KitoDo.metainfo.xml
+      - install -Dm644 packaging/flatpak/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png /app/share/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png
+      - install -Dm644 packaging/flatpak/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png /app/share/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png
+      - install -Dm644 packaging/flatpak/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png /app/share/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png
       - install -Dm644 packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg /app/share/icons/hicolor/scalable/apps/io.github.KitotsuMolina.KitoDo.svg
     sources:
       - type: dir

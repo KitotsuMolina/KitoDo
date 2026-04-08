@@ -10,6 +10,19 @@ This folder contains a full Flatpak scaffold for KitoDo.
 
 ## Build locally
 
+Primero genera iconos raster desde `assets/kitodo-icon.png`:
+
+```bash
+./packaging/flatpak/prepare.sh
+```
+
+Esto crea:
+- `packaging/flatpak/icons/hicolor/64x64/apps/io.github.KitotsuMolina.KitoDo.png`
+- `packaging/flatpak/icons/hicolor/128x128/apps/io.github.KitotsuMolina.KitoDo.png`
+- `packaging/flatpak/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png`
+
+Luego construye e instala:
+
 ```bash
 flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml
 ```

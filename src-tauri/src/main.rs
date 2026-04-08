@@ -29,6 +29,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let db_path = resolve_db_path(app)?;
+            kitodo::integrations::github::sync::spawn_poller(db_path.clone());
             app.manage(AppState { db_path });
             Ok(())
         })
@@ -55,6 +56,19 @@ pub fn run() {
             commands::tasks::move_task_to_project,
             commands::tasks::soft_delete_task,
             commands::tasks::restore_task,
+            commands::github::github_connect,
+            commands::github::github_disconnect,
+            commands::github::github_list_accounts,
+            commands::github::github_get_settings,
+            commands::github::github_set_settings,
+            commands::github::github_list_repos,
+            commands::github::github_add_repo_subscription,
+            commands::github::github_remove_repo_subscription,
+            commands::github::github_toggle_repo_subscription,
+            commands::github::github_list_repo_subscriptions,
+            commands::github::github_sync_now,
+            commands::github::github_get_status,
+            commands::github::github_list_external_items,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
