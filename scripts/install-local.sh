@@ -30,7 +30,7 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-"${BUILD_SCRIPT}"
+bash "${BUILD_SCRIPT}"
 
 APPIMAGE_SOURCE="$(find "${ROOT_DIR}/src-tauri/target/release/bundle/appimage" -maxdepth 1 -type f -name '*.AppImage' | sort | tail -n 1)"
 

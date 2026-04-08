@@ -12,9 +12,9 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ -x "${SYNC_ICON_SCRIPT}" ]]; then
+if [[ -f "${SYNC_ICON_SCRIPT}" ]]; then
   echo "[kitodo] Sincronizando icono Tauri..."
-  "${SYNC_ICON_SCRIPT}"
+  bash "${SYNC_ICON_SCRIPT}"
 fi
 
 echo "[kitodo] Compilando AppImage..."

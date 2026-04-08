@@ -55,6 +55,9 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Ensure scripts are executable
+        run: chmod +x scripts/*.sh
+
       - name: Build AppImage
         run: pnpm run tauri:build
 
