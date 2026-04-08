@@ -4,6 +4,7 @@
   import { onMount, tick } from 'svelte';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
+    exportBackupJson,
     githubAddRepoSubscription,
     githubConnect,
     githubDisconnect,
@@ -15,6 +16,7 @@
     githubSyncNow,
     githubToggleRepoSubscription,
     githubRemoveRepoSubscription,
+    importBackupJson,
     initDb,
     listInbox,
     listLabels,
@@ -38,6 +40,7 @@
     type GithubAccountDTO,
     type GithubSettingsDTO,
     type GithubStatusDTO,
+    type ImportResultDTO,
     type LabelDTO,
     type ProjectDTO,
     type RepoSubDTO,
@@ -157,6 +160,11 @@
   let githubAccountMenuOpenUp = false;
   let githubIntervalMenuOpenUp = false;
   let githubProjectMenuOpenUp = false;
+  let backupModalOpen = false;
+  let backupBusy = false;
+  let backupJsonDraft = '';
+  let backupNotice = '';
+  let backupFileInputRef: HTMLInputElement | null = null;
 
   $: selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
   $: isProjectView = selectedProjectId !== null;
@@ -976,6 +984,67 @@
     quickInputRef?.focus();
   }
 
+  async function onExportBackup() {
+    backupBusy = true;
+    backupNotice = '';
+    try {
+      const json = await exportBackupJson();
+      backupJsonDraft = json;
+
+      const stamp = new Date().toISOString().slice(0, 19).replaceAll(':', '-');
+      const fileName = `kitodo-backup-${stamp}.json`;
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      backupNotice = 'Backup exportado.';
+    } catch (e) {
+      error = String(e);
+    } finally {
+      backupBusy = false;
+    }
+  }
+
+  function triggerImportBackupFile() {
+    backupFileInputRef?.click();
+  }
+
+  async function runImportBackup(json: string) {
+    const payload = json.trim();
+    if (!payload) return;
+
+    backupBusy = true;
+    backupNotice = '';
+    try {
+      const result: ImportResultDTO = await importBackupJson(payload);
+      backupNotice = `Importación lista: ${result.importedProjects} proyectos, ${result.createdTasks} tareas nuevas, ${result.updatedTasks} actualizadas.`;
+      await refreshAll();
+      await refreshGithubState();
+    } catch (e) {
+      error = String(e);
+    } finally {
+      backupBusy = false;
+    }
+  }
+
+  async function onImportBackupFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    input.value = '';
+    await runImportBackup(text);
+  }
+
+  async function onImportBackupDraft() {
+    await runImportBackup(backupJsonDraft);
+  }
+
   function priorityClass(priority: number): string {
     if (priority === 1) return 'p1';
     if (priority === 2) return 'p2';
@@ -1078,6 +1147,18 @@
       }
 
       if (event.key === 'Escape') {
+        if (backupModalOpen) {
+          event.preventDefault();
+          backupModalOpen = false;
+          return;
+        }
+
+        if (confirmResetOpen) {
+          event.preventDefault();
+          confirmResetOpen = false;
+          return;
+        }
+
         if (orderDropdownOpen || recurrenceDropdownOpen || projectDropdownOpen || datePickerOpen) {
           event.preventDefault();
           orderDropdownOpen = false;
@@ -1389,9 +1470,17 @@
             <span>Mostrar completadas</span>
           </label>
         </div>
-        <div class="progress-wrap" title="Progreso del día">
-          <span>{todayDoneCount}/{todayTotalCount}</span>
-          <div class="progress-bar"><div style={`width:${dayProgress}%`}></div></div>
+        <div class="header-actions">
+          <button class="backup-trigger" on:click={() => {
+            backupModalOpen = true;
+            backupNotice = '';
+          }}>
+            Backup
+          </button>
+          <div class="progress-wrap" title="Progreso del día">
+            <span>{todayDoneCount}/{todayTotalCount}</span>
+            <div class="progress-bar"><div style={`width:${dayProgress}%`}></div></div>
+          </div>
         </div>
       </header>
 
@@ -1905,6 +1994,40 @@
       </div>
     </div>
   {/if}
+
+  {#if backupModalOpen}
+    <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
+      <div class="confirm-modal backup-modal" transition:fly={{ y: 10, duration: 160 }}>
+        <h4>Exportar / importar tareas</h4>
+        <p>Genera un JSON con tus tareas activas y completadas, o importa un backup existente haciendo merge por ID.</p>
+        <div class="backup-actions">
+          <button disabled={backupBusy} on:click={onExportBackup}>Exportar JSON</button>
+          <button disabled={backupBusy} on:click={triggerImportBackupFile}>Importar archivo</button>
+          <input
+            bind:this={backupFileInputRef}
+            class="hidden-file"
+            type="file"
+            accept=".json,application/json"
+            on:change={onImportBackupFile}
+          />
+        </div>
+        <textarea
+          class="backup-textarea"
+          bind:value={backupJsonDraft}
+          placeholder="Pega aquí un backup JSON para importarlo"
+        ></textarea>
+        {#if backupNotice}
+          <p class="backup-notice">{backupNotice}</p>
+        {/if}
+        <div class="confirm-actions">
+          <button on:click={() => (backupModalOpen = false)}>Cerrar</button>
+          <button disabled={backupBusy || !backupJsonDraft.trim()} on:click={onImportBackupDraft}>
+            Importar JSON pegado
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -1915,6 +2038,7 @@
     place-items: stretch;
     padding: 0;
     position: relative;
+    overflow: hidden;
   }
 
   .panel {
@@ -1932,6 +2056,7 @@
     padding: 18px;
     display: grid;
     gap: 14px;
+    overflow: hidden;
     transition: grid-template-columns 720ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
@@ -1942,9 +2067,11 @@
 
   .content {
     display: grid;
+    grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
     gap: 4px;
     min-width: 0;
     min-height: 0;
+    overflow: hidden;
   }
 
   .sidebar {
@@ -1955,6 +2082,8 @@
     display: grid;
     gap: 10px;
     align-content: start;
+    min-height: 0;
+    overflow: auto;
   }
 
   .side-block {
@@ -2049,6 +2178,12 @@
     justify-items: start;
   }
 
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
   .header h1 {
     margin: 0;
     font-size: 1.2rem;
@@ -2066,6 +2201,16 @@
     font-size: 0.78rem;
     color: var(--k-muted);
     text-align: right;
+  }
+
+  .backup-trigger {
+    border-radius: 10px;
+    border: 1px solid rgba(192, 75, 255, 0.45);
+    background: rgba(192, 75, 255, 0.12);
+    color: #efd8ff;
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
   }
 
   .progress-bar {
@@ -2392,8 +2537,11 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
     gap: 12px;
-    align-items: start;
+    align-items: stretch;
     margin-top: 2px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .workbench.project-view {
@@ -2406,8 +2554,9 @@
     display: grid;
     gap: 10px;
     align-content: start;
-    max-height: none;
     min-height: 0;
+    height: 100%;
+    align-self: stretch;
     overflow: auto;
     padding-right: 2px;
   }
@@ -2580,6 +2729,8 @@
     gap: 10px;
     box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
     max-height: none;
+    min-height: 0;
+    align-self: stretch;
     overflow: visible;
     position: relative;
     z-index: 30;
@@ -2855,6 +3006,42 @@
     color: var(--k-muted);
   }
 
+  .backup-modal {
+    width: min(680px, 94vw);
+  }
+
+  .backup-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .backup-textarea {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--k-text);
+    padding: 10px 12px;
+    font: inherit;
+  }
+
+  .backup-textarea:focus {
+    outline: none;
+    border-color: rgba(192, 75, 255, 0.72);
+    box-shadow: 0 0 0 2px rgba(166, 12, 219, 0.2);
+  }
+
+  .backup-notice {
+    color: #dcb4ff !important;
+  }
+
+  .hidden-file {
+    display: none;
+  }
+
   .confirm-actions {
     display: flex;
     justify-content: flex-end;
@@ -2881,6 +3068,7 @@
 
     .content {
       order: 1;
+      grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
     }
 
     .workbench {
@@ -2908,6 +3096,15 @@
 
     .quick-add {
       grid-template-columns: 1fr;
+    }
+
+    .header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .header-actions {
+      justify-content: space-between;
     }
 
     .task {

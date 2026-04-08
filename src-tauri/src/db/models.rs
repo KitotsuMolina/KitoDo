@@ -122,3 +122,49 @@ pub struct ToggleResultDTO {
     pub updated_task: TaskDTO,
     pub spawned_task: Option<TaskDTO>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupExportDTO {
+    pub schema_version: i64,
+    pub exported_at: String,
+    pub projects: Vec<BackupProjectDTO>,
+    pub tasks: Vec<BackupTaskDTO>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupProjectDTO {
+    pub id: String,
+    pub name: String,
+    pub sort_mode: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BackupTaskDTO {
+    pub id: String,
+    pub title: String,
+    pub status: String,
+    pub priority: i64,
+    pub due_date: Option<String>,
+    pub project_id: Option<String>,
+    pub labels: Vec<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+    pub recurrence: Option<String>,
+    pub sort_index: Option<i64>,
+    pub external_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportResultDTO {
+    pub imported_projects: i64,
+    pub created_tasks: i64,
+    pub updated_tasks: i64,
+    pub linked_labels: i64,
+}

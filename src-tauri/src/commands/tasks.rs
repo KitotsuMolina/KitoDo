@@ -2,7 +2,7 @@ use tauri::State;
 
 use crate::AppState;
 use kitodo::db::{
-    models::{LabelDTO, ProjectDTO, TaskDTO, ToggleResultDTO},
+    models::{ImportResultDTO, LabelDTO, ProjectDTO, TaskDTO, ToggleResultDTO},
     repo,
 };
 
@@ -164,4 +164,17 @@ pub fn soft_delete_task(state: State<'_, AppState>, id: String) -> Result<bool, 
 #[tauri::command]
 pub fn restore_task(state: State<'_, AppState>, id: String) -> Result<TaskDTO, String> {
     repo::restore_task(&state.db_path, &id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn export_backup_json(state: State<'_, AppState>) -> Result<String, String> {
+    repo::export_backup_json(&state.db_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn import_backup_json(
+    state: State<'_, AppState>,
+    json: String,
+) -> Result<ImportResultDTO, String> {
+    repo::import_backup_json(&state.db_path, &json).map_err(|e| e.to_string())
 }

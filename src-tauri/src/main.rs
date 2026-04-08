@@ -56,6 +56,8 @@ pub fn run() {
             commands::tasks::move_task_to_project,
             commands::tasks::soft_delete_task,
             commands::tasks::restore_task,
+            commands::tasks::export_backup_json,
+            commands::tasks::import_backup_json,
             commands::github::github_connect,
             commands::github::github_disconnect,
             commands::github::github_list_accounts,

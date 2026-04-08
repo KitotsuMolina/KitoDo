@@ -78,6 +78,14 @@ pnpm install
 kitodo
 ```
 
+## Backup e importación
+
+KitoDo permite exportar e importar tus tareas desde la UI con un backup JSON versionado.
+
+- `Backup` en el header: exporta un `.json` con proyectos y tareas activas/completadas
+- importación por archivo o pegando JSON
+- el import hace merge por `id`, sin duplicar tareas existentes
+
 ### Opción B: instalación local con Flatpak
 
 1. Clona el repo y entra al proyecto:

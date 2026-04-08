@@ -7,7 +7,10 @@ use uuid::Uuid;
 
 use super::{
     migrations,
-    models::{LabelDTO, ParsedQuickAdd, ProjectDTO, TaskDTO, ToggleResultDTO},
+    models::{
+        BackupExportDTO, BackupProjectDTO, BackupTaskDTO, ImportResultDTO, LabelDTO,
+        ParsedQuickAdd, ProjectDTO, TaskDTO, ToggleResultDTO,
+    },
 };
 
 const TASK_SELECT_BASE: &str = "
@@ -652,10 +655,267 @@ pub fn restore_task(db_path: &Path, id: &str) -> Result<TaskDTO> {
     get_task_by_id_include_deleted(&conn, id)
 }
 
+pub fn export_backup_json(db_path: &Path) -> Result<String> {
+    init_db(db_path)?;
+    let conn = open_conn(db_path)?;
+    let projects = export_projects(&conn)?;
+    let tasks = export_tasks(&conn)?;
+
+    serde_json::to_string_pretty(&BackupExportDTO {
+        schema_version: 1,
+        exported_at: now_iso(),
+        projects,
+        tasks,
+    })
+    .map_err(Into::into)
+}
+
+pub fn import_backup_json(db_path: &Path, json: &str) -> Result<ImportResultDTO> {
+    init_db(db_path)?;
+    let backup: BackupExportDTO = serde_json::from_str(json)?;
+    let mut conn = open_conn(db_path)?;
+    let tx = conn.transaction()?;
+
+    let mut imported_projects = 0_i64;
+    let mut created_tasks = 0_i64;
+    let mut updated_tasks = 0_i64;
+    let mut linked_labels = 0_i64;
+
+    for project in backup.projects {
+        upsert_import_project(&tx, &project)?;
+        imported_projects += 1;
+    }
+
+    for task in backup.tasks {
+        let created = upsert_import_task(&tx, &task)?;
+        if created {
+            created_tasks += 1;
+        } else {
+            updated_tasks += 1;
+        }
+
+        tx.execute(
+            "DELETE FROM task_labels WHERE task_id = ?1",
+            params![task.id],
+        )?;
+        for label in &task.labels {
+            let cleaned = label.trim().to_lowercase();
+            if cleaned.is_empty() {
+                continue;
+            }
+            let label_id = find_or_create_label(&tx, &cleaned)?;
+            tx.execute(
+                "INSERT OR IGNORE INTO task_labels(task_id, label_id) VALUES(?1, ?2)",
+                params![task.id, label_id],
+            )?;
+            linked_labels += 1;
+        }
+    }
+
+    tx.commit()?;
+
+    Ok(ImportResultDTO {
+        imported_projects,
+        created_tasks,
+        updated_tasks,
+        linked_labels,
+    })
+}
+
 fn open_conn(db_path: &Path) -> Result<Connection> {
     let conn = Connection::open(db_path)?;
     conn.execute("PRAGMA foreign_keys = ON", [])?;
     Ok(conn)
+}
+
+fn export_projects(conn: &Connection) -> Result<Vec<BackupProjectDTO>> {
+    let mut stmt = conn.prepare(
+        "
+        SELECT id, name, sort_mode, created_at, updated_at
+        FROM projects
+        ORDER BY name COLLATE NOCASE ASC
+        ",
+    )?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok(BackupProjectDTO {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            sort_mode: row
+                .get::<_, Option<String>>(2)?
+                .unwrap_or_else(|| "auto".to_string()),
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
+        })
+    })?;
+
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+fn export_tasks(conn: &Connection) -> Result<Vec<BackupTaskDTO>> {
+    let mut stmt = conn.prepare(
+        "
+        SELECT
+          t.id,
+          t.title,
+          t.status,
+          t.priority,
+          t.due_date,
+          t.project_id,
+          COALESCE(GROUP_CONCAT(DISTINCT l.name), '') AS labels_csv,
+          t.created_at,
+          t.updated_at,
+          t.completed_at,
+          t.recurrence,
+          t.sort_index,
+          t.external_url
+        FROM tasks t
+        LEFT JOIN task_labels tl ON tl.task_id = t.id
+        LEFT JOIN labels l ON l.id = tl.label_id
+        WHERE t.deleted_at IS NULL
+        GROUP BY
+          t.id,
+          t.title,
+          t.status,
+          t.priority,
+          t.due_date,
+          t.project_id,
+          t.created_at,
+          t.updated_at,
+          t.completed_at,
+          t.recurrence,
+          t.sort_index,
+          t.external_url
+        ORDER BY t.created_at ASC
+        ",
+    )?;
+
+    let rows = stmt.query_map([], |row| {
+        let labels_csv: String = row.get(6)?;
+        Ok(BackupTaskDTO {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            status: row.get(2)?,
+            priority: row.get(3)?,
+            due_date: row.get(4)?,
+            project_id: row.get(5)?,
+            labels: parse_labels(&labels_csv),
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+            completed_at: row.get(9)?,
+            recurrence: row.get(10)?,
+            sort_index: row.get(11)?,
+            external_url: row.get(12)?,
+        })
+    })?;
+
+    Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+}
+
+fn upsert_import_project(tx: &Transaction<'_>, project: &BackupProjectDTO) -> Result<()> {
+    let exists = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?1)",
+        params![project.id],
+        |row| row.get::<_, i64>(0),
+    )? == 1;
+
+    if exists {
+        tx.execute(
+            "
+            UPDATE projects
+            SET name = ?2, sort_mode = ?3, updated_at = ?4
+            WHERE id = ?1
+            ",
+            params![
+                project.id,
+                project.name,
+                project.sort_mode,
+                project.updated_at
+            ],
+        )?;
+    } else {
+        tx.execute(
+            "
+            INSERT INTO projects(id, name, created_at, updated_at, sort_mode)
+            VALUES (?1, ?2, ?3, ?4, ?5)
+            ",
+            params![
+                project.id,
+                project.name,
+                project.created_at,
+                project.updated_at,
+                project.sort_mode
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+fn upsert_import_task(tx: &Transaction<'_>, task: &BackupTaskDTO) -> Result<bool> {
+    let exists = tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?1)",
+        params![task.id],
+        |row| row.get::<_, i64>(0),
+    )? == 1;
+
+    if exists {
+        tx.execute(
+            "
+            UPDATE tasks
+            SET
+              project_id = ?2,
+              title = ?3,
+              status = ?4,
+              priority = ?5,
+              due_date = ?6,
+              updated_at = ?7,
+              completed_at = ?8,
+              deleted_at = NULL,
+              sort_index = ?9,
+              recurrence = ?10,
+              external_url = ?11
+            WHERE id = ?1
+            ",
+            params![
+                task.id,
+                task.project_id,
+                task.title,
+                task.status,
+                task.priority,
+                task.due_date,
+                task.updated_at,
+                task.completed_at,
+                task.sort_index,
+                task.recurrence,
+                task.external_url
+            ],
+        )?;
+        Ok(false)
+    } else {
+        tx.execute(
+            "
+            INSERT INTO tasks(
+              id, project_id, title, status, priority, due_date,
+              created_at, updated_at, completed_at, deleted_at, sort_index, recurrence, external_url
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, NULL, ?10, ?11, ?12)
+            ",
+            params![
+                task.id,
+                task.project_id,
+                task.title,
+                task.status,
+                task.priority,
+                task.due_date,
+                task.created_at,
+                task.updated_at,
+                task.completed_at,
+                task.sort_index,
+                task.recurrence,
+                task.external_url
+            ],
+        )?;
+        Ok(true)
+    }
 }
 
 fn parse_labels(labels_csv: &str) -> Vec<String> {

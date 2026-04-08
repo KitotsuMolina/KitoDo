@@ -91,6 +91,13 @@ export type GithubExternalItemDTO = {
   updatedAtExt: string | null;
 };
 
+export type ImportResultDTO = {
+  importedProjects: number;
+  createdTasks: number;
+  updatedTasks: number;
+  linkedLabels: number;
+};
+
 export async function initDb(): Promise<boolean> {
   return invoke<boolean>('init_db');
 }
@@ -185,6 +192,14 @@ export async function softDeleteTask(id: string): Promise<boolean> {
 
 export async function restoreTask(id: string): Promise<TaskDTO> {
   return invoke<TaskDTO>('restore_task', { id });
+}
+
+export async function exportBackupJson(): Promise<string> {
+  return invoke<string>('export_backup_json');
+}
+
+export async function importBackupJson(json: string): Promise<ImportResultDTO> {
+  return invoke<ImportResultDTO>('import_backup_json', { json });
 }
 
 export async function githubConnect(token: string): Promise<GithubAccountDTO> {
