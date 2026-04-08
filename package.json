@@ -10,7 +10,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri:dev": "env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 tauri dev -- --bin kitodo",
     "tauri:dev:x11": "env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_BACKEND=x11 tauri dev -- --bin kitodo",
-    "tauri:build": "tauri build -- --bin kitodo",
+    "tauri:build": "./scripts/sync-tauri-icon.sh && tauri build -- --bin kitodo",
     "appimage:build": "./scripts/build-appimage.sh"
   },
   "dependencies": {
