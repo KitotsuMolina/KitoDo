@@ -1,4 +1,4 @@
-# KitoDo v0.4.0
+# KitoDo v0.5.0
 
 KitoDo es una app de tareas estilo launcher para Hyprland, construida con arquitectura Proper Tauri:
 - Frontend SvelteKit + TypeScript solo para UI
@@ -30,13 +30,20 @@ pnpm install
 
 ## Instalación local desde este repositorio
 
-### Opción A: instalación nativa (host)
+### Opción A: AppImage local (recomendado)
 
 Instalación rápida (recomendado):
 
 ```bash
 ./scripts/install-local.sh
 ```
+
+Este script instala:
+- `KitoDo.AppImage` en `~/.local/share/kitodo/`
+- `kitodo` y `kitodo-cli` en `~/.local/bin`
+- icono local desde `assets/kitodo-icon.png`
+- iconos derivados `64x64`, `128x128` y `256x256` (si `magick` está disponible)
+- launcher desktop en `~/.local/share/applications/kitodo.desktop`
 
 Instalación manual:
 
@@ -53,21 +60,19 @@ cd KitoDo
 pnpm install
 ```
 
-3. Compila frontend y binarios release:
+3. Genera AppImage:
 
 ```bash
-pnpm build
-cargo build --release --manifest-path src-tauri/Cargo.toml --bin kitodo --bin kitodo-cli
+./scripts/build-appimage.sh
 ```
 
-4. Instala los binarios en tu usuario:
+4. Instala localmente:
 
 ```bash
-install -Dm755 src-tauri/target/release/kitodo ~/.local/bin/kitodo
-install -Dm755 src-tauri/target/release/kitodo-cli ~/.local/bin/kitodo-cli
+./scripts/install-local.sh
 ```
 
-5. Asegura `~/.local/bin` en tu `PATH` (si aún no lo tienes) y ejecuta:
+5. Ejecuta:
 
 ```bash
 kitodo
@@ -139,11 +144,38 @@ pnpm run tauri:dev
 ## Build
 
 ```bash
-pnpm build
-pnpm run tauri:build
+./scripts/build-appimage.sh
 ```
 
+El AppImage queda en:
+
+```bash
+src-tauri/target/release/bundle/appimage/
+```
+
+## Releases automáticos con GitHub Actions
+
+Se añadió un workflow en [release-appimage.yml](/home/kitotsu/Programacion/Personal/KitoDo/.github/workflows/release-appimage.yml) que:
+- se ejecuta al hacer push de tags `v*`
+- compila el `AppImage` en Linux
+- crea un GitHub Release
+- adjunta el `AppImage` al release
+
+Flujo recomendado:
+
+```bash
+./scripts/bump-version.sh 0.5.0
+git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json README.md
+git commit -m "chore: release v0.5.0"
+git tag v0.5.0
+git push origin main --follow-tags
+```
+
+También puedes dispararlo manualmente desde GitHub Actions, pero el flujo principal queda basado en tags.
+
 ## Flatpak
+
+Flatpak queda como alternativa opcional. El flujo principal recomendado es AppImage.
 
 Scaffold listo en:
 - `packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml`
@@ -153,6 +185,7 @@ Scaffold listo en:
 Build + install local:
 
 ```bash
+./packaging/flatpak/prepare.sh
 flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml
 ```
 
@@ -282,6 +315,51 @@ Exclusiones intencionales:
 - Kanban
 - Colaboración
 - Notificaciones complejas
+
+## GitHub Integration (Local-First)
+
+KitoDo integra GitHub sin servidor ni webhooks: todo corre local con polling incremental.
+
+### Qué importa
+
+- PRs abiertas donde te pidieron review
+- Issues abiertas asignadas a ti
+- Notifications por repo (best-effort)
+
+Cada item externo se deduplica por clave única y se mapea a una tarea local en proyecto destino (`GitHub Inbox` por defecto).
+
+### Token y seguridad
+
+- El token se guarda en **keyring del sistema** (no en SQLite).
+- Recomendado PAT con scopes mínimos:
+  - `repo` (repos privados, PR/issues)
+  - `read:user`
+  - `notifications` (si usarás import de notifications)
+
+Nota: el endpoint de notifications puede requerir **PAT classic**. Si no es compatible, se muestra aviso y sync continúa para PR/issues.
+
+### Configuración en UI
+
+En modo expandido, abre sidebar y sección **GitHub**:
+- Conectar token
+- Elegir cuenta (si hay varias)
+- Toggle Auto sync
+- Intervalo (1m, 5m, 10m, 30m)
+- Toggles de fuentes (PR review, issues assigned, notifications)
+- Proyecto destino
+- Suscripciones por repo (`owner/repo`)
+- `Sync now`
+
+### Comportamiento de mapeo
+
+- Tarea creada/actualizada por item externo (1:1 por `external_item`)
+- Labels automáticas: `#github`, `#pr|#issue|#notification`, `#review` (cuando aplica), `#repo-owner-repo`
+- Prioridad heurística:
+  - P1: título con `urgent|security|hotfix`
+  - P2: notifications/review requested
+  - P3 default
+- Si PR/Issue cierra: tarea local pasa a `done`
+- Si editas título manualmente, no se sobreescribe en sync siguientes
 
 ## CLI (Hyprland / Waybar)
 
