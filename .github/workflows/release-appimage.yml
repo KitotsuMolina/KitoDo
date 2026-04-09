@@ -121,7 +121,7 @@ jobs:
 
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
-            -e AppDir/usr/bin/kitodo-launcher \
+            -e AppDir/usr/bin/kitodo \
             -d packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop \
             -i packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg \
             --plugin gtk \
