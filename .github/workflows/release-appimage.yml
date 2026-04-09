@@ -61,12 +61,21 @@ jobs:
       - name: Sync and inspect Tauri icons
         run: |
           bash ./scripts/sync-tauri-icon.sh
+          echo "--- ls src-tauri/icons ---"
+          ls -la src-tauri/icons
+          echo "--- file src-tauri/icons/* ---"
+          file src-tauri/icons/*
+          echo "--- identify src-tauri/icons/* ---"
           identify src-tauri/icons/32x32.png
           identify src-tauri/icons/128x128.png
           identify src-tauri/icons/128x128@2x.png
           identify src-tauri/icons/icon.png
+          echo "--- tauri bundle config ---"
+          node -e "const c=require('./src-tauri/tauri.conf.json'); console.log(JSON.stringify(c.bundle,null,2))"
 
       - name: Build AppImage
+        env:
+          RUST_BACKTRACE: full
         run: pnpm run tauri:build
 
       - name: Resolve release metadata
