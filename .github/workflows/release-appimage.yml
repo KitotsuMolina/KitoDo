@@ -91,11 +91,11 @@ jobs:
 
           mkdir -p AppDir/usr/bin
           mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
 
           install -m755 src-tauri/target/release/kitodo AppDir/usr/bin/kitodo
           install -m644 packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop AppDir/usr/share/applications/io.github.KitotsuMolina.KitoDo.desktop
-          install -m644 src-tauri/icons/128x128@2x.png AppDir/usr/share/icons/hicolor/256x256/apps/io.github.KitotsuMolina.KitoDo.png
+          install -m644 src-tauri/icons/icon.png AppDir/usr/share/icons/hicolor/512x512/apps/io.github.KitotsuMolina.KitoDo.png
 
           curl -L -o linuxdeploy-x86_64.AppImage https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage
           curl -L -o linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
@@ -112,7 +112,7 @@ jobs:
             --appdir AppDir \
             -e AppDir/usr/bin/kitodo \
             -d packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop \
-            -i src-tauri/icons/128x128@2x.png \
+            -i src-tauri/icons/icon.png \
             --plugin gtk \
             --output appimage
 
