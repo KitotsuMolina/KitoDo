@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=KitoDo
+Comment=Fast launcher-style tasks app
+Exec=kitodo
+Icon=io.github.KitotsuMolina.KitoDo
+Terminal=false
+Categories=Utility;Office;Productivity;
+StartupNotify=true
+StartupWMClass=kitodo
+X-GNOME-WMClass=kitodo
