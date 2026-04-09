@@ -95,6 +95,15 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
 
           install -m755 src-tauri/target/release/kitodo AppDir/usr/bin/kitodo
+          cat > AppDir/usr/bin/kitodo-launcher <<'EOF'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export GDK_BACKEND=x11
+          exec "$(dirname "$0")/kitodo" "$@"
+          EOF
+          chmod +x AppDir/usr/bin/kitodo-launcher
           install -m644 packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop AppDir/usr/share/applications/io.github.KitotsuMolina.KitoDo.desktop
           install -m644 src-tauri/icons/icon.png AppDir/usr/share/icons/hicolor/512x512/apps/io.github.KitotsuMolina.KitoDo.png
           install -m644 packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg AppDir/usr/share/icons/hicolor/scalable/apps/io.github.KitotsuMolina.KitoDo.svg
@@ -112,7 +121,7 @@ jobs:
 
           ./linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
-            -e AppDir/usr/bin/kitodo \
+            -e AppDir/usr/bin/kitodo-launcher \
             -d packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop \
             -i packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg \
             --plugin gtk \

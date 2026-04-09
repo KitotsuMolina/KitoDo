@@ -2,7 +2,7 @@
 Type=Application
 Name=KitoDo
 Comment=Fast launcher-style tasks app
-Exec=env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_BACKEND=x11 kitodo
+Exec=kitodo-launcher
 Icon=io.github.KitotsuMolina.KitoDo
 Terminal=false
 Categories=Office;Utility;
