@@ -93,6 +93,8 @@ jobs:
           mkdir -p AppDir/usr/share/applications
           mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          mkdir -p AppDir/usr/lib/webkit2gtk-4.1
+          mkdir -p AppDir/usr/lib64
 
           install -m755 src-tauri/target/release/kitodo AppDir/usr/bin/kitodo
           cat > AppDir/usr/bin/kitodo-launcher <<'EOF'
@@ -101,12 +103,47 @@ jobs:
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
           export GDK_BACKEND=x11
-          exec "$(dirname "$0")/kitodo" "$@"
+          SCRIPT_PATH="$(readlink -f "$0")"
+          SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
+
+          if [[ -x "${SCRIPT_DIR}/kitodo" ]]; then
+            APPDIR_ROOT="${SCRIPT_DIR}/.."
+            KITODO_BIN="${SCRIPT_DIR}/kitodo"
+          elif [[ -x "${SCRIPT_DIR}/usr/bin/kitodo" ]]; then
+            APPDIR_ROOT="${SCRIPT_DIR}"
+            KITODO_BIN="${SCRIPT_DIR}/usr/bin/kitodo"
+          else
+            echo "[kitodo] No se encontro kitodo dentro del AppImage" >&2
+            exit 1
+          fi
+
+          APPDIR_ROOT="$(readlink -f "${APPDIR_ROOT}")"
+          export LD_LIBRARY_PATH="${APPDIR_ROOT}/lib:${APPDIR_ROOT}/usr/lib:${APPDIR_ROOT}/lib64:${APPDIR_ROOT}/usr/lib64:${LD_LIBRARY_PATH:-}"
+          exec "${KITODO_BIN}" "$@"
           EOF
           chmod +x AppDir/usr/bin/kitodo-launcher
           install -m644 packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop AppDir/usr/share/applications/io.github.KitotsuMolina.KitoDo.desktop
           install -m644 src-tauri/icons/icon.png AppDir/usr/share/icons/hicolor/512x512/apps/io.github.KitotsuMolina.KitoDo.png
           install -m644 packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg AppDir/usr/share/icons/hicolor/scalable/apps/io.github.KitotsuMolina.KitoDo.svg
+
+          for helper in WebKitNetworkProcess WebKitWebProcess WebKitGPUProcess; do
+            if [[ -f "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/${helper}" ]]; then
+              install -m755 "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/${helper}" "AppDir/usr/lib/webkit2gtk-4.1/${helper}"
+            elif [[ -f "/usr/lib/webkit2gtk-4.1/${helper}" ]]; then
+              install -m755 "/usr/lib/webkit2gtk-4.1/${helper}" "AppDir/usr/lib/webkit2gtk-4.1/${helper}"
+            fi
+          done
+
+          if [[ -d "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle" ]]; then
+            mkdir -p AppDir/usr/lib/webkit2gtk-4.1/injected-bundle
+            cp -a /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/. AppDir/usr/lib/webkit2gtk-4.1/injected-bundle/
+          elif [[ -d "/usr/lib/webkit2gtk-4.1/injected-bundle" ]]; then
+            mkdir -p AppDir/usr/lib/webkit2gtk-4.1/injected-bundle
+            cp -a /usr/lib/webkit2gtk-4.1/injected-bundle/. AppDir/usr/lib/webkit2gtk-4.1/injected-bundle/
+          fi
+
+          ln -sfn usr/lib AppDir/lib
+          ln -sfn usr/lib64 AppDir/lib64
 
           curl -L -o linuxdeploy-x86_64.AppImage https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage
           curl -L -o linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
@@ -115,17 +152,44 @@ jobs:
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-gtk.sh linuxdeploy-plugin-appimage-x86_64.AppImage
 
           export VERSION
-          export OUTPUT="KitoDo_amd64.AppImage"
           export ARCH=x86_64
           export APPIMAGE_EXTRACT_AND_RUN=1
 
-          ./linuxdeploy-x86_64.AppImage \
+          rm -rf linuxdeploy-root squashfs-root
+          ./linuxdeploy-x86_64.AppImage --appimage-extract >/dev/null
+          mv squashfs-root linuxdeploy-root
+          rm -f linuxdeploy-root/usr/bin/strip
+          cp linuxdeploy-plugin-gtk.sh linuxdeploy-root/
+          cp linuxdeploy-plugin-appimage-x86_64.AppImage linuxdeploy-root/
+
+          ./linuxdeploy-root/AppRun \
             --appdir AppDir \
             -e AppDir/usr/bin/kitodo \
             -d packaging/appimage/io.github.KitotsuMolina.KitoDo.desktop \
             -i packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg \
-            --plugin gtk \
-            --output appimage
+            --plugin gtk
+
+          find AppDir/usr/lib* -name 'libwebkit*.so*' -type f -print0 | while IFS= read -r -d '' file; do
+            perl -0pi -e 's#\./\.//lib/webkit2gtk-4\.1/injected-bundle/#/usr/lib/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/webkit2gtk-4\.1#/usr/lib/webkit2gtk-4.1#g' "$file"
+          done
+
+          PATCH_ELF="linuxdeploy-root/usr/bin/patchelf"
+          if [[ -x "${PATCH_ELF}" ]]; then
+            for helper in WebKitNetworkProcess WebKitWebProcess WebKitGPUProcess; do
+              helper_path="AppDir/usr/lib/webkit2gtk-4.1/${helper}"
+              if [[ -f "${helper_path}" ]]; then
+                "${PATCH_ELF}" --set-rpath '$ORIGIN:$ORIGIN/..' "${helper_path}"
+              fi
+            done
+
+            injected_bundle="AppDir/usr/lib/webkit2gtk-4.1/injected-bundle/libwebkit2gtkinjectedbundle.so"
+            if [[ -f "${injected_bundle}" ]]; then
+              "${PATCH_ELF}" --set-rpath '$ORIGIN:$ORIGIN/..:$ORIGIN/../..' "${injected_bundle}"
+            fi
+          fi
+
+          APPIMAGETOOL="linuxdeploy-root/plugins/linuxdeploy-plugin-appimage/usr/bin/appimagetool"
+          OUTPUT="KitoDo_amd64.AppImage" "${APPIMAGETOOL}" AppDir KitoDo_amd64.AppImage
 
       - name: Resolve release metadata
         id: meta
