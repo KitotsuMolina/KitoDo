@@ -8,4 +8,9 @@ src-tauri/gen
 *.db
 *.db-shm
 *.db-wal
+AppDir/
+linuxdeploy-x86_64.AppImage
+linuxdeploy-plugin-gtk.sh
+linuxdeploy-plugin-appimage-x86_64.AppImage
 linuxdeploy-root/
+squashfs-root/

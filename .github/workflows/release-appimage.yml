@@ -94,6 +94,7 @@ jobs:
           mkdir -p AppDir/usr/share/icons/hicolor/512x512/apps
           mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
           mkdir -p AppDir/usr/lib/webkit2gtk-4.1
+          mkdir -p AppDir/usr/lib/x86_64-linux-gnu
           mkdir -p AppDir/usr/lib64
 
           install -m755 src-tauri/target/release/kitodo AppDir/usr/bin/kitodo
@@ -118,7 +119,9 @@ jobs:
           fi
 
           APPDIR_ROOT="$(readlink -f "${APPDIR_ROOT}")"
-          export LD_LIBRARY_PATH="${APPDIR_ROOT}/lib:${APPDIR_ROOT}/usr/lib:${APPDIR_ROOT}/lib64:${APPDIR_ROOT}/usr/lib64:${LD_LIBRARY_PATH:-}"
+          export WEBKIT_EXEC_PATH="${APPDIR_ROOT}/usr/lib/webkit2gtk-4.1"
+          export WEBKIT_INJECTED_BUNDLE_PATH="${APPDIR_ROOT}/usr/lib/webkit2gtk-4.1/injected-bundle"
+          export LD_LIBRARY_PATH="${APPDIR_ROOT}/lib:${APPDIR_ROOT}/usr/lib:${APPDIR_ROOT}/usr/lib/x86_64-linux-gnu:${APPDIR_ROOT}/lib64:${APPDIR_ROOT}/usr/lib64:${LD_LIBRARY_PATH:-}"
           exec "${KITODO_BIN}" "$@"
           EOF
           chmod +x AppDir/usr/bin/kitodo-launcher
@@ -141,6 +144,8 @@ jobs:
             mkdir -p AppDir/usr/lib/webkit2gtk-4.1/injected-bundle
             cp -a /usr/lib/webkit2gtk-4.1/injected-bundle/. AppDir/usr/lib/webkit2gtk-4.1/injected-bundle/
           fi
+
+          ln -sfn ../webkit2gtk-4.1 AppDir/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1
 
           ln -sfn usr/lib AppDir/lib
           ln -sfn usr/lib64 AppDir/lib64
@@ -170,7 +175,7 @@ jobs:
             --plugin gtk
 
           find AppDir/usr/lib* -name 'libwebkit*.so*' -type f -print0 | while IFS= read -r -d '' file; do
-            perl -0pi -e 's#\./\.//lib/webkit2gtk-4\.1/injected-bundle/#/usr/lib/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/webkit2gtk-4\.1#/usr/lib/webkit2gtk-4.1#g' "$file"
+            perl -0pi -e 's#\./\.//lib/x86_64-linux-gnu/webkit2gtk-4\.1/injected-bundle/#/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/x86_64-linux-gnu/webkit2gtk-4\.1#/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1#g; s#\./\.//lib/webkit2gtk-4\.1/injected-bundle/#/usr/lib/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/webkit2gtk-4\.1#/usr/lib/webkit2gtk-4.1#g' "$file"
           done
 
           PATCH_ELF="linuxdeploy-root/usr/bin/patchelf"

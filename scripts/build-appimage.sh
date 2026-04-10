@@ -35,6 +35,7 @@ mkdir -p "${APPDIR}/usr/share/applications"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/512x512/apps"
 mkdir -p "${APPDIR}/usr/share/icons/hicolor/scalable/apps"
 mkdir -p "${APPDIR}/usr/lib/webkit2gtk-4.1"
+mkdir -p "${APPDIR}/usr/lib/x86_64-linux-gnu"
 mkdir -p "${APPDIR}/usr/lib64"
 
 install -m755 src-tauri/target/release/kitodo "${APPDIR}/usr/bin/kitodo"
@@ -59,7 +60,9 @@ else
 fi
 
 APPDIR_ROOT="$(readlink -f "${APPDIR_ROOT}")"
-export LD_LIBRARY_PATH="${APPDIR_ROOT}/lib:${APPDIR_ROOT}/usr/lib:${APPDIR_ROOT}/lib64:${APPDIR_ROOT}/usr/lib64:${LD_LIBRARY_PATH:-}"
+export WEBKIT_EXEC_PATH="${APPDIR_ROOT}/usr/lib/webkit2gtk-4.1"
+export WEBKIT_INJECTED_BUNDLE_PATH="${APPDIR_ROOT}/usr/lib/webkit2gtk-4.1/injected-bundle"
+export LD_LIBRARY_PATH="${APPDIR_ROOT}/lib:${APPDIR_ROOT}/usr/lib:${APPDIR_ROOT}/usr/lib/x86_64-linux-gnu:${APPDIR_ROOT}/lib64:${APPDIR_ROOT}/usr/lib64:${LD_LIBRARY_PATH:-}"
 exec "${KITODO_BIN}" "$@"
 EOF
 chmod +x "${APPDIR}/usr/bin/kitodo-launcher"
@@ -68,15 +71,24 @@ install -m644 src-tauri/icons/icon.png "${APPDIR}/usr/share/icons/hicolor/512x51
 install -m644 packaging/flatpak/icons/io.github.KitotsuMolina.KitoDo.svg "${APPDIR}/usr/share/icons/hicolor/scalable/apps/io.github.KitotsuMolina.KitoDo.svg"
 
 for helper in WebKitNetworkProcess WebKitWebProcess WebKitGPUProcess; do
-  if [[ -f "/usr/lib/webkit2gtk-4.1/${helper}" ]]; then
+  if [[ -f "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/${helper}" ]]; then
+    install -m755 "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/${helper}" "${APPDIR}/usr/lib/webkit2gtk-4.1/${helper}"
+  elif [[ -f "/usr/lib/webkit2gtk-4.1/${helper}" ]]; then
     install -m755 "/usr/lib/webkit2gtk-4.1/${helper}" "${APPDIR}/usr/lib/webkit2gtk-4.1/${helper}"
   fi
 done
 
-if [[ -d "/usr/lib/webkit2gtk-4.1/injected-bundle" ]]; then
+if [[ -d "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle" ]]; then
+  mkdir -p "${APPDIR}/usr/lib/webkit2gtk-4.1/injected-bundle"
+  cp -a /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/. "${APPDIR}/usr/lib/webkit2gtk-4.1/injected-bundle/"
+elif [[ -d "/usr/lib/webkit2gtk-4.1/injected-bundle" ]]; then
   mkdir -p "${APPDIR}/usr/lib/webkit2gtk-4.1/injected-bundle"
   cp -a /usr/lib/webkit2gtk-4.1/injected-bundle/. "${APPDIR}/usr/lib/webkit2gtk-4.1/injected-bundle/"
 fi
+
+# WebKitGTK can resolve helper processes using either the plain libdir or the
+# Debian/Ubuntu multiarch libdir. Mirror the multiarch layout inside the AppDir.
+ln -sfn ../webkit2gtk-4.1 "${APPDIR}/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
 
 ln -sfn usr/lib "${APPDIR}/lib"
 ln -sfn usr/lib64 "${APPDIR}/lib64"
@@ -109,7 +121,7 @@ export APPIMAGE_EXTRACT_AND_RUN=1
 # Restauramos las rutas esperadas y ajustamos RUNPATH para que los helpers
 # puedan cargar libwebkit2gtk-4.1.so.0 desde ../.
 find "${APPDIR}"/usr/lib* -name 'libwebkit*.so*' -type f -print0 | while IFS= read -r -d '' file; do
-  perl -0pi -e 's#\./\.//lib/webkit2gtk-4\.1/injected-bundle/#/usr/lib/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/webkit2gtk-4\.1#/usr/lib/webkit2gtk-4.1#g' "$file"
+  perl -0pi -e 's#\./\.//lib/x86_64-linux-gnu/webkit2gtk-4\.1/injected-bundle/#/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/x86_64-linux-gnu/webkit2gtk-4\.1#/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1#g; s#\./\.//lib/webkit2gtk-4\.1/injected-bundle/#/usr/lib/webkit2gtk-4.1/injected-bundle/#g; s#\./\.//lib/webkit2gtk-4\.1#/usr/lib/webkit2gtk-4.1#g' "$file"
 done
 
 PATCH_ELF="${ROOT_DIR}/linuxdeploy-root/usr/bin/patchelf"
