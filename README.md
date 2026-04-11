@@ -1,403 +1,147 @@
-# KitoDo v0.5.0
+# KitoDo v0.6.4
 
-KitoDo es una app de tareas estilo launcher para Hyprland, construida con arquitectura Proper Tauri:
-- Frontend SvelteKit + TypeScript solo para UI
-- Backend Rust para lógica + SQLite
-- Offline-first, sin sync
+KitoDo es una app de tareas estilo launcher para Linux. El runtime actual usa:
+
+- `SvelteKit + TypeScript` para la UI
+- `Electron` como shell de escritorio
+- `Rust + SQLite` como backend local (`kitodo-server`)
+
+La app mantiene una arquitectura de bajo acoplamiento: Electron solo hospeda la ventana y actúa como bridge seguro; toda la lógica de datos y GitHub vive en Rust.
 
 ## Stack
 
-- Tauri v2
-- Rust
+- Electron
 - SvelteKit + TypeScript
+- Rust
 - SQLite (`rusqlite`)
 - UUID v7
-- Migrations embebidas
 
-## Setup
+## Requisitos
 
-Requisitos:
 - Node.js 20+
+- `pnpm`
 - Rust toolchain estable
-- Dependencias de sistema para Tauri (WebKitGTK en Linux)
-- Tauri CLI v2
+- Dependencias Linux típicas para Electron/AppImage
 
-Instalar dependencias frontend:
-
-```bash
-pnpm install
-```
-
-## Instalación local desde este repositorio
-
-### Opción A: AppImage local (recomendado)
-
-Instalación rápida (recomendado):
+## Instalación
 
 ```bash
-./scripts/install-local.sh
-```
-
-Este script instala:
-- `KitoDo.AppImage` en `~/.local/share/kitodo/`
-- `kitodo` y `kitodo-cli` en `~/.local/bin`
-- icono local desde `assets/kitodo-icon.png`
-- iconos derivados `64x64`, `128x128` y `256x256` (si `magick` está disponible)
-- launcher desktop en `~/.local/share/applications/kitodo.desktop`
-
-Instalación manual:
-
-1. Clona el repo y entra al proyecto:
-
-```bash
-git clone https://github.com/KitotsuMolina/KitoDo.git
-cd KitoDo
-```
-
-2. Instala dependencias frontend:
-
-```bash
-pnpm install
-```
-
-3. Genera AppImage:
-
-```bash
-./scripts/build-appimage.sh
-```
-
-4. Instala localmente:
-
-```bash
-./scripts/install-local.sh
-```
-
-5. Ejecuta:
-
-```bash
-kitodo
-```
-
-## Backup e importación
-
-KitoDo permite exportar e importar tus tareas desde la UI con un backup JSON versionado.
-
-- `Backup` en el header: exporta un `.json` con proyectos y tareas activas/completadas
-- importación por archivo o pegando JSON
-- el import hace merge por `id`, sin duplicar tareas existentes
-
-### Opción B: instalación local con Flatpak
-
-1. Clona el repo y entra al proyecto:
-
-```bash
-git clone https://github.com/KitotsuMolina/KitoDo.git
-cd KitoDo
-```
-
-2. Construye e instala el Flatpak local:
-
-```bash
-flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml
-```
-
-3. Ejecuta:
-
-```bash
-flatpak run io.github.KitotsuMolina.KitoDo
-```
-
-## Desinstalación local (host)
-
-Si instalaste con `./scripts/install-local.sh`, puedes remover binarios con:
-
-```bash
-./scripts/uninstall-local.sh
-```
-
-Instalar Tauri CLI (elige una):
-
-```bash
-# Opción global (cargo)
-cargo install tauri-cli --version '^2.0.0' --locked
-```
-
-```bash
-# Opción local (recomendada para el proyecto)
 pnpm install
 ```
 
 ## Desarrollo
 
-En una terminal:
-
 ```bash
-pnpm dev
+pnpm run electron:dev
 ```
 
-En otra terminal (raíz del proyecto):
+Ese comando hace tres cosas:
+
+- levanta Vite en `http://127.0.0.1:5173`
+- compila `kitodo-server` en modo debug
+- abre Electron usando un preload aislado y `sandbox`
+
+## Build local
 
 ```bash
-pnpm run tauri:dev
+pnpm run appimage:build
 ```
 
-> Si instalaste el CLI global, también puedes usar `cargo tauri dev`.
-> La app usa `http://localhost:5173` en desarrollo. Si ese puerto está ocupado, libera el proceso previo antes de iniciar.
-> En Hyprland/Wayland, si hay crash de protocolo GTK/WebKit, usa:
->
-> ```bash
-> pnpm run tauri:dev:x11
-> ```
-
-## Build
+Eso genera:
 
 ```bash
-./scripts/build-appimage.sh
+dist-electron/*.AppImage
 ```
 
-El AppImage queda en:
+El script:
 
-```bash
-src-tauri/target/release/bundle/appimage/
-```
+- compila el frontend estático
+- compila `kitodo-server` en release
+- empaqueta con `electron-builder`
 
-## Releases automáticos con GitHub Actions
+## Releases con GitHub Actions
 
-Se añadió un workflow en [release-appimage.yml](/home/kitotsu/Programacion/Personal/KitoDo/.github/workflows/release-appimage.yml) que:
-- se ejecuta al hacer push de tags `v*`
-- compila el `AppImage` en Linux
-- crea un GitHub Release
-- adjunta el `AppImage` al release
+El workflow [release-appimage.yml](/home/kitotsu/Programacion/Personal/KitoDo/.github/workflows/release-appimage.yml) se ejecuta en tags `v*` y adjunta un `.AppImage` al release.
 
 Flujo recomendado:
 
 ```bash
 ./scripts/bump-version.sh 0.5.0
-git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json README.md
+git add package.json pnpm-lock.yaml src-tauri/Cargo.toml README.md
 git commit -m "chore: release v0.5.0"
 git tag v0.5.0
 git push origin main --follow-tags
 ```
 
-También puedes dispararlo manualmente desde GitHub Actions, pero el flujo principal queda basado en tags.
+## Optimización de Electron
 
-## Flatpak
+La app quedó configurada para contener consumo y procesos extra:
 
-Flatpak queda como alternativa opcional. El flujo principal recomendado es AppImage.
+- `contextIsolation: true`
+- `sandbox: true`
+- `nodeIntegration: false`
+- `spellcheck: false`
+- una sola ventana
+- aperturas externas redirigidas al navegador del sistema en vez de abrir renderers nuevos
+- backend pesado movido a un sidecar Rust fuera del proceso renderer
 
-Scaffold listo en:
-- `packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml`
-- `packaging/flatpak/io.github.KitotsuMolina.KitoDo.desktop`
-- `packaging/flatpak/io.github.KitotsuMolina.KitoDo.metainfo.xml`
-
-Build + install local:
-
-```bash
-./packaging/flatpak/prepare.sh
-flatpak-builder --user --install --force-clean build-flatpak packaging/flatpak/io.github.KitotsuMolina.KitoDo.yml
-```
-
-Ejecutar app:
-
-```bash
-flatpak run io.github.KitotsuMolina.KitoDo
-```
-
-Comando CLI en sandbox:
-
-```bash
-flatpak run --command=kitodo-cli io.github.KitotsuMolina.KitoDo today --json
-```
-
-Si quieres lanzar con `kitodo` desde tu shell host, usa alias:
-
-```bash
-echo "alias kitodo='flatpak run io.github.KitotsuMolina.KitoDo'" >> ~/.bashrc
-```
+Eso evita el patrón más costoso de Electron: mezclar UI, acceso nativo y lógica de negocio dentro del renderer.
 
 ## Base de datos
 
-Ruta de DB con `app_data_dir`:
+Ruta de la DB:
+
 - Linux: `~/.local/share/kitodo/kitodo.db`
 
-Migrations embebidas en:
+Migraciones embebidas:
+
 - `src-tauri/migrations/001_init.sql`
 - `src-tauri/migrations/002_indexes.sql`
 - `src-tauri/migrations/003_qol_sort_recurrence.sql`
 - `src-tauri/migrations/004_qol_sort_recurrence_indexes.sql`
 - `src-tauri/migrations/005_rebuild_tasks_fk.sql`
 - `src-tauri/migrations/006_indexes_hardening.sql`
+- `src-tauri/migrations/007_github_local_first.sql`
+- `src-tauri/migrations/008_github_local_first_indexes.sql`
 
-Hardening aplicado:
-- Backup automático antes de migrations pendientes: `kitodo.db.bak-YYYYMMDD-HHMMSS`
-- Rotación automática de backups: se conservan los últimos 10
-- FKs activas por conexión (`PRAGMA foreign_keys = ON`)
+## API interna
 
-## API interna (Tauri commands)
+La UI llama al sidecar local usando el mismo contrato lógico que antes exponía Tauri:
 
-- `init_db()`
-- `quick_add(input)`
-- `list_inbox(show_done)`
-- `list_today(show_done)`
-- `list_overdue(show_done)`
-- `list_upcoming(days, show_done)`
-- `list_project_tasks(project_id, show_done)`
-- `list_projects()`
-- `list_labels()`
-- `get_project_sort_mode(project_id)`
-- `set_project_sort_mode(project_id, mode)`
-- `reorder_project_tasks(project_id, ordered_task_ids)`
-- `reset_project_manual_order(project_id)`
-- `toggle_task(id)`
-- `toggle_task_with_recurrence(id)`
-- `update_task_title(id, title)`
-- `update_task_priority(id, priority)`
-- `update_task_due_date(id, due_date_or_null)`
-- `update_task_recurrence(id, recurrence_or_null)`
-- `move_task_to_project(id, project_id_or_null, project_name_to_create_or_null)`
-- `soft_delete_task(id)`
-- `restore_task(id)`
-
-## UX actual
-
-- Metadatos visibles por tarea: `@proyecto`, `#labels`, `Due: YYYY-MM-DD`
-- Tabs con contadores en vivo: `Inbox`, `Hoy`, `Próximos`
-- Búsqueda local por título/proyecto/etiquetas (debounce ~180ms)
-- Sección `Vencidas` (Overdue) en `Hoy` y `Próximos`
-- Undo al eliminar (snackbar 5s con `Deshacer`)
-- Menú contextual `⋯` por tarea:
-  - cambiar prioridad (`P1..P4`)
-  - cambiar fecha (`today`, `tomorrow`, manual o quitar)
-  - cambiar recurrencia
-  - mover a proyecto existente
-  - crear proyecto y mover
-  - eliminar (soft delete)
-- Micro-animaciones sutiles en alta/baja/toggle done
-- Modo expandido con sidebar animado (vistas, proyectos, etiquetas, filtros)
-- Vista por proyecto con orden configurable:
-  - `Auto`
-  - `Manual` (reordenamiento drag & drop cuando no hay búsqueda)
-  - `Volver a Auto` + `Actualizar/Recalcular`
-- Mini métricas + barra de progreso diario
-
-## Atajos
-
-- `Esc`: cierra la ventana (o limpia búsqueda si estás en buscador)
-- `Ctrl+K`: focus en Quick Add
-- `Ctrl+F`: focus en búsqueda
-- `Ctrl+1`: Inbox
-- `Ctrl+2`: Hoy
-- `Ctrl+3`: Próximos
-- `J/K`: mover selección en lista
-- `X`: toggle done de tarea seleccionada
-- `Enter`: editar tarea seleccionada
-- `Delete/Backspace`: eliminar tarea seleccionada (con Undo)
-- `F`: toggle compacto/expandido
-- `F11`: maximizar/restaurar ventana
-
-## Quick Add
-
-Tokens soportados:
-- `@Proyecto` (máximo 1)
-- `#tag` (múltiples)
-- `p1`..`p4` (default `p4`)
-- `due today`
-- `due tomorrow`
-- `due YYYY-MM-DD`
-- `every day|week|month`
-- `every mon|tue|wed|thu|fri|sat|sun`
-- `every 2d|3w|1m` (intervalos)
-
-Ejemplo:
-
-```text
-Comprar leche @Personal #compras p2 due tomorrow every week
-```
-
-## Notas actuales
-
-Exclusiones intencionales:
-- Sync
-- RRULE completa / recurrencias avanzadas
-- Subtareas
-- Kanban
-- Colaboración
-- Notificaciones complejas
-
-## GitHub Integration (Local-First)
-
-KitoDo integra GitHub sin servidor ni webhooks: todo corre local con polling incremental.
-
-### Qué importa
-
-- PRs abiertas donde te pidieron review
-- Issues abiertas asignadas a ti
-- Notifications por repo (best-effort)
-
-Cada item externo se deduplica por clave única y se mapea a una tarea local en proyecto destino (`GitHub Inbox` por defecto).
-
-### Token y seguridad
-
-- El token se guarda en **keyring del sistema** (no en SQLite).
-- Recomendado PAT con scopes mínimos:
-  - `repo` (repos privados, PR/issues)
-  - `read:user`
-  - `notifications` (si usarás import de notifications)
-
-Nota: el endpoint de notifications puede requerir **PAT classic**. Si no es compatible, se muestra aviso y sync continúa para PR/issues.
-
-### Configuración en UI
-
-En modo expandido, abre sidebar y sección **GitHub**:
-- Conectar token
-- Elegir cuenta (si hay varias)
-- Toggle Auto sync
-- Intervalo (1m, 5m, 10m, 30m)
-- Toggles de fuentes (PR review, issues assigned, notifications)
-- Proyecto destino
-- Suscripciones por repo (`owner/repo`)
-- `Sync now`
-
-### Comportamiento de mapeo
-
-- Tarea creada/actualizada por item externo (1:1 por `external_item`)
-- Labels automáticas: `#github`, `#pr|#issue|#notification`, `#review` (cuando aplica), `#repo-owner-repo`
-- Prioridad heurística:
-  - P1: título con `urgent|security|hotfix`
-  - P2: notifications/review requested
-  - P3 default
-- Si PR/Issue cierra: tarea local pasa a `done`
-- Si editas título manualmente, no se sobreescribe en sync siguientes
-
-## CLI (Hyprland / Waybar)
-
-El binario principal soporta modo CLI cuando se invoca con subcomandos.
-
-Ejemplos:
-
-```bash
-kitodo today --json
-kitodo overdue --json
-kitodo inbox --json
-kitodo add \"Comprar leche @Personal #compras due tomorrow p2 every week\" --json
-```
-
-Flags:
-- `--all`: incluye tareas `done` (por defecto solo `todo`)
-- `--json`: salida JSON estable
-
-Formato JSON:
-- Listados: `{ \"tasks\": [TaskDTO, ...] }`
-- Add: `{ \"task\": TaskDTO }`
-
-## AUR scaffold
-
-Se añadió scaffold en:
-- `packaging/aur/PKGBUILD`
-- `packaging/aur/.SRCINFO`
-- `packaging/aur/kitodo.desktop`
-- `packaging/aur/README.md`
-
-Antes de publicar:
-1. Reemplazar `url` y datos de maintainer en `PKGBUILD`.
-2. Regenerar `.SRCINFO` con `makepkg --printsrcinfo > .SRCINFO`.
+- `init_db`
+- `quick_add`
+- `list_inbox`
+- `list_today`
+- `list_overdue`
+- `list_upcoming`
+- `list_project_tasks`
+- `list_projects`
+- `list_labels`
+- `get_project_sort_mode`
+- `set_project_sort_mode`
+- `reorder_project_tasks`
+- `reset_project_manual_order`
+- `toggle_task`
+- `toggle_task_with_recurrence`
+- `update_task_title`
+- `update_task_priority`
+- `update_task_due_date`
+- `update_task_recurrence`
+- `move_task_to_project`
+- `soft_delete_task`
+- `restore_task`
+- `export_backup_json`
+- `import_backup_json`
+- `github_connect`
+- `github_disconnect`
+- `github_list_accounts`
+- `github_get_settings`
+- `github_set_settings`
+- `github_list_repos`
+- `github_add_repo_subscription`
+- `github_remove_repo_subscription`
+- `github_toggle_repo_subscription`
+- `github_list_repo_subscriptions`
+- `github_sync_now`
+- `github_get_status`
+- `github_list_external_items`
