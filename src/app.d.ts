@@ -8,6 +8,20 @@ declare global {
     // interface PageState {}
     // interface Platform {}
   }
+
+  interface Window {
+    kitodo: {
+      invoke<T>(command: string, payload?: Record<string, unknown>): Promise<T>;
+      window: {
+        isMaximized(): Promise<boolean>;
+        toggleMaximize(): Promise<boolean>;
+        close(): Promise<void>;
+      };
+      shell: {
+        openExternal(url: string): Promise<void>;
+      };
+    };
+  }
 }
 
 export {};

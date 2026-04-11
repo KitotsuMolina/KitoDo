@@ -1,4 +1,6 @@
-import { invoke } from '@tauri-apps/api/core';
+function invoke<T>(command: string, payload: Record<string, unknown> = {}): Promise<T> {
+  return window.kitodo.invoke<T>(command, payload);
+}
 
 export type TaskDTO = {
   id: string;

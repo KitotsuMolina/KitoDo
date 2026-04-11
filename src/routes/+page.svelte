@@ -1,8 +1,8 @@
 <script lang="ts">
   import { cubicOut, quintInOut, quintOut } from 'svelte/easing';
   import { fade, fly } from 'svelte/transition';
+  import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
-  import { getCurrentWindow } from '@tauri-apps/api/window';
   import {
     exportBackupJson,
     githubAddRepoSubscription,
@@ -45,7 +45,7 @@
     type ProjectDTO,
     type RepoSubDTO,
     type TaskDTO
-  } from '$lib/api/tauri';
+  } from '$lib/api/desktop';
 
   type Tab = 'inbox' | 'today' | 'upcoming';
 
@@ -165,6 +165,21 @@
   let backupJsonDraft = '';
   let backupNotice = '';
   let backupFileInputRef: HTMLInputElement | null = null;
+
+  async function toggleWindowMaximize() {
+    if (!browser) return;
+    await window.kitodo.window.toggleMaximize();
+  }
+
+  async function closeAppWindow() {
+    if (!browser) return;
+    await window.kitodo.window.close();
+  }
+
+  async function openExternalUrl(url: string) {
+    if (!browser) return;
+    await window.kitodo.shell.openExternal(url);
+  }
 
   $: selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
   $: isProjectView = selectedProjectId !== null;
@@ -1136,13 +1151,7 @@
 
       if (event.key === 'F11') {
         event.preventDefault();
-        const appWindow = getCurrentWindow();
-        const maximized = await appWindow.isMaximized();
-        if (maximized) {
-          await appWindow.unmaximize();
-        } else {
-          await appWindow.maximize();
-        }
+        await toggleWindowMaximize();
         return;
       }
 
@@ -1193,7 +1202,7 @@
         }
 
         event.preventDefault();
-        await getCurrentWindow().close();
+        await closeAppWindow();
       }
     };
 
@@ -1958,7 +1967,7 @@
 
             <button class="danger" on:click={() => onDeleteTask(selectedMenuTask.id)}>Eliminar</button>
             {#if selectedMenuTask.externalUrl}
-              <button on:click={() => window.open(selectedMenuTask.externalUrl!, '_blank')}>Abrir en GitHub</button>
+              <button on:click={() => openExternalUrl(selectedMenuTask.externalUrl!)}>Abrir en GitHub</button>
             {/if}
           {:else}
             <h3>Panel de tarea</h3>
@@ -2084,6 +2093,7 @@
     align-content: start;
     min-height: 0;
     overflow: auto;
+    scrollbar-color: rgba(192, 75, 255, 0.62) rgba(255, 255, 255, 0.05);
   }
 
   .side-block {
@@ -2154,6 +2164,7 @@
     gap: 6px;
     max-height: 150px;
     overflow: auto;
+    scrollbar-color: rgba(137, 198, 255, 0.46) rgba(255, 255, 255, 0.05);
   }
 
   .gh-repo-item {
@@ -2176,12 +2187,15 @@
     display: grid;
     gap: 6px;
     justify-items: start;
+    min-width: 0;
   }
 
   .header-actions {
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .header h1 {
@@ -2280,10 +2294,12 @@
     display: flex;
     gap: 8px;
     flex-wrap: wrap;
+    width: 100%;
   }
 
   .tabs button {
     padding: 8px 12px;
+    min-height: 40px;
   }
 
   .tabs button.active {
@@ -2505,6 +2521,7 @@
     background: rgba(19, 16, 28, 0.98);
     box-shadow: 0 14px 24px rgba(0, 0, 0, 0.35), 0 0 18px rgba(192, 75, 255, 0.16);
     z-index: 80;
+    scrollbar-color: rgba(192, 75, 255, 0.56) rgba(255, 255, 255, 0.04);
   }
 
   .context-menu.open-up {
@@ -2559,6 +2576,7 @@
     align-self: stretch;
     overflow: auto;
     padding-right: 2px;
+    scrollbar-color: rgba(192, 75, 255, 0.62) rgba(255, 255, 255, 0.05);
   }
 
   .section-header {
@@ -2771,6 +2789,7 @@
   .menu-inline {
     display: flex;
     gap: 6px;
+    flex-wrap: wrap;
   }
 
   .date-picker {
@@ -2785,8 +2804,8 @@
     position: absolute;
     top: calc(100% + 6px);
     left: 0;
-    width: 100%;
-    min-width: 250px;
+    width: min(100%, 320px);
+    min-width: min(250px, calc(100vw - 48px));
     padding: 8px;
     border-radius: 10px;
     border: 1px solid rgba(192, 75, 255, 0.5);
@@ -3026,6 +3045,7 @@
     color: var(--k-text);
     padding: 10px 12px;
     font: inherit;
+    scrollbar-color: rgba(192, 75, 255, 0.56) rgba(255, 255, 255, 0.05);
   }
 
   .backup-textarea:focus {
@@ -3058,12 +3078,18 @@
   }
 
   @media (max-width: 900px) {
+    .panel {
+      padding: 14px;
+      overflow: auto;
+    }
+
     .panel.expanded {
       grid-template-columns: 1fr;
     }
 
     .sidebar {
       order: 2;
+      max-height: none;
     }
 
     .content {
@@ -3077,11 +3103,20 @@
 
     .context-panel {
       max-height: none;
+      overflow: visible;
     }
 
     .project-controls {
       flex-direction: column;
       align-items: stretch;
+    }
+
+    .project-actions {
+      width: 100%;
+    }
+
+    .context-panel {
+      order: -1;
     }
   }
 
@@ -3094,17 +3129,93 @@
       padding: 12px;
     }
 
+    .content {
+      gap: 8px;
+    }
+
     .quick-add {
       grid-template-columns: 1fr;
+    }
+
+    .quick-add button {
+      min-height: 42px;
     }
 
     .header {
       flex-direction: column;
       align-items: stretch;
+      gap: 12px;
     }
 
     .header-actions {
-      justify-content: space-between;
+      justify-content: stretch;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .header-left {
+      justify-items: stretch;
+    }
+
+    .header h1,
+    .header p {
+      text-align: left;
+    }
+
+    .toggle {
+      width: 100%;
+      align-items: flex-start;
+      line-height: 1.35;
+    }
+
+    .backup-trigger {
+      width: 100%;
+      min-height: 42px;
+    }
+
+    .progress-wrap {
+      width: 100%;
+      min-width: 0;
+      text-align: left;
+    }
+
+    .progress-bar {
+      width: 100%;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .tabs button {
+      width: 100%;
+      padding: 9px 8px;
+      font-size: 0.84rem;
+    }
+
+    .project-title {
+      overflow-wrap: anywhere;
+    }
+
+    .project-actions {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
+    .order-dropdown {
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+
+    .order-label {
+      margin-bottom: 2px;
+    }
+
+    .order-trigger {
+      width: 100%;
+      min-width: 0;
     }
 
     .task {
@@ -3135,9 +3246,103 @@
       align-self: start;
     }
 
+    .gh-inline,
+    .gh-add-repo,
+    .gh-repo-item,
+    .backup-actions,
+    .confirm-actions {
+      grid-template-columns: 1fr;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .gh-repo-item {
+      display: grid;
+    }
+
+    .gh-actions {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .context-panel {
+      padding: 12px;
+    }
+
+    .menu-inline > * {
+      flex: 1 1 120px;
+    }
+
+    .date-picker-menu {
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(92vw, 320px);
+      min-width: 0;
+    }
+
+    .date-picker-menu.open-up {
+      transform: translateX(-50%);
+    }
+
+    .backup-modal {
+      width: min(94vw, 680px);
+    }
+
+    .backup-textarea {
+      min-height: 180px;
+    }
+
     .snackbar {
       width: min(92vw, 460px);
       justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+  }
+
+  @media (max-width: 460px) {
+    .panel {
+      padding: 10px;
+      gap: 10px;
+    }
+
+    .tabs {
+      grid-template-columns: 1fr;
+    }
+
+    .tabs button,
+    .project-actions button,
+    .context-panel button,
+    .backup-actions button,
+    .confirm-actions button {
+      width: 100%;
+    }
+
+    .task {
+      padding: 9px;
+      gap: 8px;
+    }
+
+    .title {
+      font-size: 0.95rem;
+    }
+
+    .meta-line {
+      gap: 5px;
+    }
+
+    .chip {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+
+    .date-picker-menu {
+      width: min(94vw, 320px);
+    }
+
+    .snackbar {
+      bottom: 14px;
+      width: calc(100vw - 20px);
     }
   }
 </style>

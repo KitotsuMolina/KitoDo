@@ -29,6 +29,45 @@ body {
   color: var(--k-text);
 }
 
+html {
+  scrollbar-color: rgba(192, 75, 255, 0.55) rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
+}
+
+body {
+  scrollbar-color: rgba(192, 75, 255, 0.55) rgba(255, 255, 255, 0.06);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background:
+    linear-gradient(rgba(18, 14, 28, 0.95), rgba(18, 14, 28, 0.95)) padding-box,
+    linear-gradient(180deg, rgba(166, 12, 219, 0.78), rgba(192, 75, 255, 0.42)) border-box;
+  box-shadow: 0 0 12px rgba(192, 75, 255, 0.18);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background:
+    linear-gradient(rgba(18, 14, 28, 0.95), rgba(18, 14, 28, 0.95)) padding-box,
+    linear-gradient(180deg, rgba(192, 75, 255, 0.95), rgba(226, 154, 255, 0.62)) border-box;
+  box-shadow: 0 0 16px rgba(192, 75, 255, 0.28);
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 button,
 input {
   font: inherit;

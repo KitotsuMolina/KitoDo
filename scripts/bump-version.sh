@@ -19,11 +19,10 @@ cd "${ROOT_DIR}"
 
 sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" package.json
 sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" src-tauri/Cargo.toml
-sed -i "s/\"version\": \".*\"/\"version\": \"${VERSION}\"/" src-tauri/tauri.conf.json
 sed -i "s/^# KitoDo v.*/# KitoDo v${VERSION}/" README.md
 
 echo "[kitodo] Version actualizada a ${VERSION}"
 echo "[kitodo] Siguiente paso sugerido:"
-echo "git add package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json README.md"
+echo "git add package.json pnpm-lock.yaml src-tauri/Cargo.toml README.md"
 echo "git commit -m \"chore: release v${VERSION}\""
 echo "git tag v${VERSION}"
