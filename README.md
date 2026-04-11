@@ -1,4 +1,4 @@
-# KitoDo v0.6.4
+# KitoDo v0.6.6
 
 KitoDo es una app de tareas estilo launcher para Linux. El runtime actual usa:
 

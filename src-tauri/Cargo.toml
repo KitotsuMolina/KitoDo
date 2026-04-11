@@ -1,6 +1,6 @@
 [package]
 name = "kitodo"
-version = "0.6.4"
+version = "0.6.6"
 description = "KitoDo v0.4"
 authors = ["kitotsu"]
 license = "MIT"

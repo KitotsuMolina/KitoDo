@@ -1,6 +1,6 @@
 {
   "name": "kitodo",
-  "version": "0.6.4",
+  "version": "0.6.6",
   "description": "Launcher de tareas local con Electron, SvelteKit y Rust",
   "author": "kitotsu",
   "private": true,
