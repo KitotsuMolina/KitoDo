@@ -1,10 +1,6 @@
 <script lang="ts">
   import { CircleHelp, X } from 'lucide-svelte';
-
-  type QuickAddExample = {
-    label: string;
-    value: string;
-  };
+  import type { QuickAddExample } from '$lib/constants/app-content';
 
   export let examples: QuickAddExample[] = [];
   export let onHide: () => void;
