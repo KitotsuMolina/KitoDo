@@ -19,5 +19,13 @@ contextBridge.exposeInMainWorld('kitodo', {
     openExternal(url) {
       return ipcRenderer.invoke('kitodo:shell:openExternal', url);
     }
+  },
+  notifications: {
+    getSettings() {
+      return ipcRenderer.invoke('kitodo:notifications:getSettings');
+    },
+    setEnabled(enabled) {
+      return ipcRenderer.invoke('kitodo:notifications:setEnabled', enabled);
+    }
   }
 });

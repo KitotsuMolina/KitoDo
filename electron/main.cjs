@@ -1,7 +1,7 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, shell } = require('electron');
 const { spawn } = require('node:child_process');
 const { createServer } = require('node:http');
-const { readFile } = require('node:fs/promises');
+const { mkdir, readFile, writeFile } = require('node:fs/promises');
 const net = require('node:net');
 const path = require('node:path');
 const process = require('node:process');
@@ -16,6 +16,13 @@ let apiBaseUrl = null;
 let staticServer = null;
 let staticBaseUrl = null;
 let isQuitting = false;
+let dueNotificationTimer = null;
+let dueNotificationState = { enabled: true, delivered: {} };
+let dueNotificationStateLoaded = false;
+let dueNotificationCheckInFlight = false;
+
+const DUE_NOTIFICATION_POLL_MS = 5 * 60 * 1000;
+const DUE_NOTIFICATION_RETENTION_DAYS = 21;
 
 app.setName('KitoDo');
 
@@ -107,6 +114,244 @@ function parseJsonSafe(raw) {
   } catch {
     return null;
   }
+}
+
+function formatLocalYmd(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function shiftLocalDate(date, days) {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getDueNotificationStatePath() {
+  return path.join(app.getPath('userData'), 'due-notifications.json');
+}
+
+async function loadDueNotificationState() {
+  if (dueNotificationStateLoaded) {
+    return dueNotificationState;
+  }
+
+  try {
+    const raw = await readFile(getDueNotificationStatePath(), 'utf8');
+    const parsed = parseJsonSafe(raw);
+    dueNotificationState =
+      parsed && typeof parsed === 'object'
+        ? {
+            enabled: parsed.enabled !== false,
+            delivered: parsed.delivered && typeof parsed.delivered === 'object' ? parsed.delivered : {}
+          }
+        : { enabled: true, delivered: {} };
+  } catch (error) {
+    if (error && error.code !== 'ENOENT') {
+      console.error('No se pudo cargar el estado de notificaciones de vencimiento:', error);
+    }
+    dueNotificationState = { enabled: true, delivered: {} };
+  }
+
+  dueNotificationStateLoaded = true;
+  pruneDueNotificationState();
+  return dueNotificationState;
+}
+
+function pruneDueNotificationState() {
+  const cutoff = formatLocalYmd(shiftLocalDate(new Date(), -DUE_NOTIFICATION_RETENTION_DAYS));
+  const nextDelivered = {};
+
+  for (const [key, value] of Object.entries(dueNotificationState.delivered || {})) {
+    if (typeof value === 'string' && value >= cutoff) {
+      nextDelivered[key] = value;
+    }
+  }
+
+  dueNotificationState.delivered = nextDelivered;
+}
+
+function getDueNotificationSettings() {
+  return {
+    enabled: dueNotificationState.enabled !== false,
+    supported: Notification.isSupported()
+  };
+}
+
+async function saveDueNotificationState() {
+  try {
+    await mkdir(path.dirname(getDueNotificationStatePath()), { recursive: true });
+    await writeFile(getDueNotificationStatePath(), JSON.stringify(dueNotificationState, null, 2), 'utf8');
+  } catch (error) {
+    console.error('No se pudo guardar el estado de notificaciones de vencimiento:', error);
+  }
+}
+
+async function focusOrCreateMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    await createWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show();
+  }
+
+  mainWindow.focus();
+}
+
+function buildDueNotificationPayload(task, kind) {
+  const projectSuffix = task.projectName ? ` · @${task.projectName}` : '';
+  const dueSuffix = task.dueDate ? ` · ${task.dueDate}` : '';
+
+  if (kind === 'overdue') {
+    return {
+      title: 'Tarea vencida en KitoDo',
+      body: `${task.title}${projectSuffix}${dueSuffix}`
+    };
+  }
+
+  return {
+    title: 'Tarea para hoy en KitoDo',
+    body: `${task.title}${projectSuffix}${dueSuffix}`
+  };
+}
+
+async function collectDueNotificationCandidates() {
+  const [overdueTasks, todayTasks] = await Promise.all([
+    invoke('list_overdue', { showDone: false }),
+    invoke('list_today', { showDone: false })
+  ]);
+
+  const todayKey = formatLocalYmd(new Date());
+  const candidates = [];
+
+  for (const task of overdueTasks) {
+    if (!task?.id || task.status !== 'todo' || !task.dueDate) {
+      continue;
+    }
+
+    candidates.push({
+      key: `overdue:${task.id}:${todayKey}`,
+      task,
+      kind: 'overdue'
+    });
+  }
+
+  for (const task of todayTasks) {
+    if (!task?.id || task.status !== 'todo' || !task.dueDate) {
+      continue;
+    }
+
+    candidates.push({
+      key: `today:${task.id}:${task.dueDate}`,
+      task,
+      kind: 'today'
+    });
+  }
+
+  return candidates;
+}
+
+async function runDueNotificationCheck() {
+  if (dueNotificationCheckInFlight || !Notification.isSupported() || !apiBaseUrl) {
+    return;
+  }
+
+  dueNotificationCheckInFlight = true;
+
+  try {
+    await loadDueNotificationState();
+    if (dueNotificationState.enabled === false) {
+      return;
+    }
+    const candidates = await collectDueNotificationCandidates();
+    let stateChanged = false;
+    const deliveredToday = formatLocalYmd(new Date());
+
+    for (const candidate of candidates) {
+      if (dueNotificationState.delivered[candidate.key]) {
+        continue;
+      }
+
+      const payload = buildDueNotificationPayload(candidate.task, candidate.kind);
+      const notification = new Notification({
+        title: payload.title,
+        body: payload.body,
+        urgency: candidate.kind === 'overdue' ? 'critical' : 'normal'
+      });
+
+      notification.on('click', () => {
+        focusOrCreateMainWindow().catch((error) => {
+          console.error('No se pudo enfocar la ventana tras una notificación:', error);
+        });
+      });
+
+      notification.show();
+      dueNotificationState.delivered[candidate.key] = deliveredToday;
+      stateChanged = true;
+    }
+
+    if (stateChanged) {
+      pruneDueNotificationState();
+      await saveDueNotificationState();
+    }
+  } catch (error) {
+    console.error('Fallo comprobando notificaciones de tareas con fecha:', error);
+  } finally {
+    dueNotificationCheckInFlight = false;
+  }
+}
+
+async function startDueNotificationScheduler() {
+  if (dueNotificationTimer || !Notification.isSupported()) {
+    return;
+  }
+
+  await loadDueNotificationState();
+  if (dueNotificationState.enabled === false) {
+    return;
+  }
+  await runDueNotificationCheck();
+  dueNotificationTimer = setInterval(() => {
+    runDueNotificationCheck().catch((error) => {
+      console.error('Fallo en el scheduler de notificaciones de vencimiento:', error);
+    });
+  }, DUE_NOTIFICATION_POLL_MS);
+}
+
+function stopDueNotificationScheduler() {
+  if (!dueNotificationTimer) {
+    return;
+  }
+
+  clearInterval(dueNotificationTimer);
+  dueNotificationTimer = null;
+}
+
+async function setDueNotificationsEnabled(enabled) {
+  await loadDueNotificationState();
+  dueNotificationState.enabled = Boolean(enabled);
+  await saveDueNotificationState();
+
+  if (!Notification.isSupported()) {
+    return getDueNotificationSettings();
+  }
+
+  if (dueNotificationState.enabled) {
+    await startDueNotificationScheduler();
+    await runDueNotificationCheck();
+  } else {
+    stopDueNotificationScheduler();
+  }
+
+  return getDueNotificationSettings();
 }
 
 async function startStaticServer() {
@@ -346,6 +591,15 @@ ipcMain.handle('kitodo:shell:openExternal', async (_event, url) => {
   await shell.openExternal(url);
 });
 
+ipcMain.handle('kitodo:notifications:getSettings', async () => {
+  await loadDueNotificationState();
+  return getDueNotificationSettings();
+});
+
+ipcMain.handle('kitodo:notifications:setEnabled', async (_event, enabled) => {
+  return setDueNotificationsEnabled(enabled);
+});
+
 app.on('second-instance', () => {
   if (!mainWindow) {
     return;
@@ -365,6 +619,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopDueNotificationScheduler();
   if (sidecarProcess) {
     sidecarProcess.kill('SIGTERM');
   }
@@ -381,11 +636,14 @@ app.whenReady()
     }
 
     await createWindow();
+    await startDueNotificationScheduler();
 
     app.on('activate', async () => {
       if (BrowserWindow.getAllWindows().length === 0) {
         await createWindow();
       }
+
+      await runDueNotificationCheck();
     });
   })
   .catch((error) => {

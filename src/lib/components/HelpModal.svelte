@@ -4,6 +4,9 @@
 
   export let open = false;
   export let sections: ShortcutSection[] = [];
+  export let dueNotificationsEnabled = true;
+  export let dueNotificationsSupported = true;
+  export let onToggleDueNotifications: () => void;
   export let onClose: () => void;
   export let onShowGuide: () => void;
 </script>
@@ -21,6 +24,27 @@
         KitoDo está pensado para capturar tareas rápido y luego refinarlas desde filtros y el panel lateral.
         Los atajos globales no se disparan mientras escribes en un campo de texto.
       </p>
+      <section class="preferences-card">
+        <div class="preferences-copy">
+          <strong>Notificaciones de tareas con fecha</strong>
+          <span>
+            {#if dueNotificationsSupported}
+              Recibe avisos locales para tareas de hoy y tareas vencidas.
+            {:else}
+              Este sistema no soporta notificaciones nativas desde Electron.
+            {/if}
+          </span>
+        </div>
+        <label class="toggle-row" class:disabled={!dueNotificationsSupported}>
+          <input
+            type="checkbox"
+            checked={dueNotificationsEnabled}
+            disabled={!dueNotificationsSupported}
+            on:change={onToggleDueNotifications}
+          />
+          <span>{dueNotificationsEnabled ? 'Activadas' : 'Desactivadas'}</span>
+        </label>
+      </section>
       <div class="shortcut-sections">
         {#each sections as section}
           <section class="shortcut-section">
@@ -87,6 +111,10 @@
 
   .help-modal {
     width: min(760px, 94vw);
+    max-height: min(88vh, 860px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: rgba(192, 75, 255, 0.56) rgba(255, 255, 255, 0.05);
   }
 
   .modal-head {
@@ -157,6 +185,49 @@
     gap: 12px;
   }
 
+  .preferences-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(192, 75, 255, 0.2);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .preferences-copy {
+    display: grid;
+    gap: 4px;
+  }
+
+  .preferences-copy strong {
+    font-size: 0.88rem;
+  }
+
+  .preferences-copy span {
+    color: var(--k-muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .toggle-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    color: var(--k-text);
+    font-size: 0.84rem;
+  }
+
+  .toggle-row.disabled {
+    opacity: 0.55;
+  }
+
+  .toggle-row input {
+    accent-color: #c04bff;
+  }
+
   .shortcut-section {
     display: grid;
     gap: 8px;
@@ -224,6 +295,11 @@
     .shortcut-row {
       grid-template-columns: 1fr;
       gap: 6px;
+    }
+
+    .preferences-card {
+      flex-direction: column;
+      align-items: stretch;
     }
 
     .confirm-actions {

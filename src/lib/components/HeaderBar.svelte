@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CircleHelp, Database, Filter, X } from 'lucide-svelte';
+  import { BellOff, CircleHelp, Database, Filter, X } from 'lucide-svelte';
 
   export let pendingCount = 0;
   export let todayPendingCount = 0;
@@ -8,6 +8,8 @@
   export let dayProgress = 0;
   export let showDone = false;
   export let expandedMode = false;
+  export let dueNotificationsEnabled = true;
+  export let dueNotificationsSupported = true;
   export let onToggleShowDone: () => void;
   export let onToggleSidebar: () => void;
   export let onOpenHelp: () => void;
@@ -28,6 +30,12 @@
     </label>
   </div>
   <div class="header-actions">
+    {#if dueNotificationsSupported && !dueNotificationsEnabled}
+      <button class="header-status-badge" on:click={onOpenHelp} title="Las notificaciones están desactivadas. Abrir ayuda.">
+        <BellOff size={14} strokeWidth={2.1} />
+        <span>Notificaciones desactivadas</span>
+      </button>
+    {/if}
     <div class="header-tool-buttons">
       <button
         class="header-tool-button"
@@ -85,6 +93,27 @@
     gap: 8px;
     justify-items: end;
     margin-left: auto;
+  }
+
+  .header-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 190, 92, 0.28);
+    background: rgba(255, 190, 92, 0.1);
+    color: #ffe1a6;
+    padding: 6px 10px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+  }
+
+  .header-status-badge:hover {
+    transform: translateY(-1px);
+    border-color: rgba(255, 190, 92, 0.5);
+    background: rgba(255, 190, 92, 0.16);
   }
 
   .header-tool-buttons {
@@ -223,6 +252,13 @@
     .header-actions {
       justify-items: end;
       width: auto;
+    }
+
+    .header-status-badge {
+      max-width: min(100%, 280px);
+      justify-content: center;
+      text-align: center;
+      white-space: normal;
     }
 
     .header-tool-buttons {

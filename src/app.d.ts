@@ -20,6 +20,10 @@ declare global {
       shell: {
         openExternal(url: string): Promise<void>;
       };
+      notifications: {
+        getSettings(): Promise<{ enabled: boolean; supported: boolean }>;
+        setEnabled(enabled: boolean): Promise<{ enabled: boolean; supported: boolean }>;
+      };
     };
   }
 }

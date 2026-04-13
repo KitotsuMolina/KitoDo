@@ -194,6 +194,8 @@
   let confirmDeleteTaskId: string | null = null;
   let confirmDeleteTaskTitle = '';
   let viewportWidth = 1440;
+  let dueNotificationsEnabled = true;
+  let dueNotificationsSupported = true;
 
   async function toggleWindowMaximize() {
     if (!browser) return;
@@ -208,6 +210,20 @@
   async function openExternalUrl(url: string) {
     if (!browser) return;
     await window.kitodo.shell.openExternal(url);
+  }
+
+  async function refreshDueNotificationSettings() {
+    if (!browser) return;
+    const settings = await window.kitodo.notifications.getSettings();
+    dueNotificationsEnabled = settings.enabled;
+    dueNotificationsSupported = settings.supported;
+  }
+
+  async function toggleDueNotifications() {
+    if (!browser || !dueNotificationsSupported) return;
+    const settings = await window.kitodo.notifications.setEnabled(!dueNotificationsEnabled);
+    dueNotificationsEnabled = settings.enabled;
+    dueNotificationsSupported = settings.supported;
   }
 
   function persistQuickGuideVisibility() {
@@ -360,6 +376,7 @@
       await initDb();
       await refreshAll();
       await refreshGithubState();
+      await refreshDueNotificationSettings();
     } catch (e) {
       error = String(e);
     } finally {
@@ -1271,6 +1288,8 @@
         {dayProgress}
         {showDone}
         {expandedMode}
+        {dueNotificationsEnabled}
+        {dueNotificationsSupported}
         onToggleShowDone={toggleShowDone}
         onToggleSidebar={toggleSidebar}
         onOpenHelp={() => (helpModalOpen = true)}
@@ -1731,6 +1750,9 @@
   <HelpModal
     open={helpModalOpen}
     sections={shortcutSections}
+    {dueNotificationsEnabled}
+    {dueNotificationsSupported}
+    onToggleDueNotifications={toggleDueNotifications}
     onClose={() => (helpModalOpen = false)}
     onShowGuide={showQuickGuide}
   />
