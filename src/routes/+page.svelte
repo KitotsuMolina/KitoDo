@@ -4,12 +4,9 @@
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
   import {
-    CircleHelp,
-    Database,
     Download,
     ExternalLink,
     Eye,
-    Filter,
     Plus,
     RefreshCw,
     RotateCcw,
@@ -61,6 +58,8 @@
     type RepoSubDTO,
     type TaskDTO
   } from '$lib/api/desktop';
+  import HeaderBar from '$lib/components/HeaderBar.svelte';
+  import QuickGuideCard from '$lib/components/QuickGuideCard.svelte';
 
   type Tab = 'inbox' | 'today' | 'upcoming';
 
@@ -1615,62 +1614,23 @@
     {/if}
 
     <section class="content">
-      <header class="header">
-        <div class="header-left">
-          <h1>KitoDo</h1>
-          <p>Pendientes: {pendingCount} | Hoy: {todayPendingCount}</p>
-          <label class="toggle top-left">
-            <input type="checkbox" checked={showDone} on:change={toggleShowDone} />
-            <span class="toggle-switch" aria-hidden="true">
-              <span class="toggle-thumb"></span>
-            </span>
-            <span>Mostrar completadas</span>
-          </label>
-        </div>
-        <div class="header-actions">
-          <div class="header-tool-buttons">
-            <button
-              class="header-tool-button"
-              aria-label={expandedMode ? 'Ocultar filtros' : 'Mostrar filtros'}
-              title={expandedMode ? 'Ocultar filtros' : 'Mostrar filtros'}
-              on:click={toggleSidebar}
-            >
-              <Filter size={18} strokeWidth={2.1} />
-            </button>
-            <button
-              class="header-tool-button"
-              aria-label="Abrir ayuda"
-              title="Abrir ayuda"
-              on:click={() => (helpModalOpen = true)}
-            >
-              <CircleHelp size={18} strokeWidth={2.1} />
-            </button>
-            <button
-              class="header-tool-button header-tool-button--accent"
-              aria-label="Abrir respaldo"
-              title="Abrir respaldo"
-              on:click={() => {
-                backupModalOpen = true;
-                backupNotice = '';
-              }}
-            >
-              <Database size={18} strokeWidth={2.1} />
-            </button>
-            <button
-              class="header-tool-button header-tool-button--danger"
-              aria-label="Cerrar aplicación"
-              title="Cerrar aplicación"
-              on:click={closeAppWindow}
-            >
-              <X size={18} strokeWidth={2.1} />
-            </button>
-          </div>
-          <div class="progress-wrap" title="Progreso del día">
-            <span>{todayDoneCount}/{todayTotalCount}</span>
-            <div class="progress-bar"><div style={`width:${dayProgress}%`}></div></div>
-          </div>
-        </div>
-      </header>
+      <HeaderBar
+        {pendingCount}
+        {todayPendingCount}
+        {todayDoneCount}
+        {todayTotalCount}
+        {dayProgress}
+        {showDone}
+        {expandedMode}
+        onToggleShowDone={toggleShowDone}
+        onToggleSidebar={toggleSidebar}
+        onOpenHelp={() => (helpModalOpen = true)}
+        onOpenBackup={() => {
+          backupModalOpen = true;
+          backupNotice = '';
+        }}
+        onCloseApp={closeAppWindow}
+      />
 
       <div class="quick-add">
         <input
@@ -1694,42 +1654,16 @@
       </div>
 
       {#if quickGuideVisible}
-        <section class="guide-card">
-          <div class="panel-head">
-            <div class="guide-copy">
-              <h2>Crear tareas en una línea</h2>
-              <p>
-                Usa la entrada rápida para combinar título, proyecto, etiquetas, prioridad, fecha y repetición.
-                Los tokens `due` y `every` siguen estando en inglés porque son la sintaxis real del parser.
-              </p>
-            </div>
-            <button class="icon-button" aria-label="Ocultar guía rápida" on:click={hideQuickGuide}>
-              <X size={18} strokeWidth={2.1} />
-            </button>
-          </div>
-          <div class="guide-examples">
-            {#each quickAddExamples as example}
-              <button
-                class="example-pill"
-                on:click={() => {
-                  quickInput = example.value;
-                  quickInputRef?.focus();
-                  quickInputRef?.select();
-                }}
-              >
-                <strong>{example.label}</strong>
-                <span>{example.value}</span>
-              </button>
-            {/each}
-          </div>
-          <div class="guide-actions">
-            <span>Filtros: botón `Filtros` o `Shift + F`. Cierre: mismo botón o `Escape`.</span>
-            <button class="ghost-trigger compact button-with-icon" on:click={() => (helpModalOpen = true)}>
-              <CircleHelp size={16} strokeWidth={2.1} />
-              <span>Ver guía rápida</span>
-            </button>
-          </div>
-        </section>
+        <QuickGuideCard
+          examples={quickAddExamples}
+          onHide={hideQuickGuide}
+          onOpenHelp={() => (helpModalOpen = true)}
+          onSelectExample={(value) => {
+            quickInput = value;
+            quickInputRef?.focus();
+            quickInputRef?.select();
+          }}
+        />
       {/if}
 
       <div class="toolbar">
@@ -2961,65 +2895,6 @@
     color: var(--k-text);
   }
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .header-left {
-    display: grid;
-    gap: 6px;
-    justify-items: start;
-    min-width: 0;
-  }
-
-  .header-actions {
-    display: grid;
-    gap: 8px;
-    justify-items: end;
-    margin-left: auto;
-  }
-
-  .header-tool-buttons {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .header h1 {
-    margin: 0;
-    font-size: 1.2rem;
-    letter-spacing: 0.04em;
-  }
-
-  .header p {
-    margin: 5px 0 0;
-    color: var(--k-muted);
-    font-size: 0.86rem;
-  }
-
-  .progress-wrap {
-    min-width: 118px;
-    font-size: 0.78rem;
-    color: var(--k-muted);
-    text-align: right;
-  }
-
-  .backup-trigger {
-    border-radius: 10px;
-    border: 1px solid rgba(192, 75, 255, 0.45);
-    background: rgba(192, 75, 255, 0.12);
-    color: #efd8ff;
-    padding: 8px 12px;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
   .ghost-trigger {
     border-radius: 10px;
     border: 1px solid rgba(255, 255, 255, 0.14);
@@ -3043,37 +2918,6 @@
 
   .button-with-icon :global(svg) {
     flex: 0 0 auto;
-  }
-
-  .header-tool-button {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--k-text);
-    display: inline-grid;
-    place-items: center;
-    cursor: pointer;
-    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
-  }
-
-  .header-tool-button:hover {
-    transform: translateY(-1px);
-    border-color: rgba(192, 75, 255, 0.46);
-    background: rgba(192, 75, 255, 0.1);
-    box-shadow: 0 0 14px rgba(192, 75, 255, 0.14);
-  }
-
-  .header-tool-button--accent {
-    border-color: rgba(192, 75, 255, 0.42);
-    background: linear-gradient(135deg, rgba(166, 12, 219, 0.24), rgba(192, 75, 255, 0.18));
-    color: #efd8ff;
-  }
-
-  .header-tool-button--danger {
-    border-color: rgba(255, 120, 145, 0.32);
-    color: #ffd7e1;
   }
 
   .button-primary,
@@ -3166,21 +3010,6 @@
     flex: 0 0 auto;
   }
 
-  .progress-bar {
-    margin-top: 4px;
-    width: 118px;
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-  }
-
-  .progress-bar > div {
-    height: 100%;
-    background: linear-gradient(90deg, var(--k-purple), var(--k-purple-2));
-    transition: width 200ms ease;
-  }
-
   .quick-add {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -3222,66 +3051,6 @@
     background: linear-gradient(135deg, rgba(166, 12, 219, 0.52), rgba(192, 75, 255, 0.44));
   }
 
-  .guide-card {
-    display: grid;
-    gap: 12px;
-    padding: 12px;
-    border-radius: 14px;
-    border: 1px solid rgba(192, 75, 255, 0.2);
-    background:
-      linear-gradient(135deg, rgba(192, 75, 255, 0.08), rgba(137, 198, 255, 0.05)),
-      rgba(255, 255, 255, 0.03);
-  }
-
-  .guide-copy h2 {
-    margin: 0;
-    font-size: 0.95rem;
-  }
-
-  .guide-copy p {
-    margin: 6px 0 0;
-    color: var(--k-muted);
-    font-size: 0.86rem;
-    line-height: 1.45;
-  }
-
-  .guide-examples {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .example-pill {
-    display: grid;
-    gap: 4px;
-    text-align: left;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: rgba(255, 255, 255, 0.04);
-    color: var(--k-text);
-    padding: 10px;
-  }
-
-  .example-pill strong {
-    font-size: 0.8rem;
-  }
-
-  .example-pill span {
-    color: var(--k-muted);
-    font-size: 0.8rem;
-    overflow-wrap: anywhere;
-  }
-
-  .guide-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-    color: var(--k-muted);
-    font-size: 0.82rem;
-  }
-
   .toolbar {
     display: flex;
     justify-content: flex-start;
@@ -3305,65 +3074,6 @@
   .tabs button.active {
     border-color: rgba(192, 75, 255, 0.8);
     box-shadow: 0 0 18px rgba(192, 75, 255, 0.25);
-  }
-
-  .toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    color: var(--k-muted);
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .toggle.top-left {
-    margin-top: 2px;
-  }
-
-  .toggle input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    pointer-events: none;
-  }
-
-  .toggle-switch {
-    width: 42px;
-    height: 24px;
-    border-radius: 999px;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    background: rgba(255, 255, 255, 0.08);
-    padding: 2px;
-    display: inline-flex;
-    align-items: center;
-    transition: background 280ms ease, border-color 280ms ease, box-shadow 280ms ease;
-  }
-
-  .toggle-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
-    transform: translateX(0);
-    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), background 280ms ease;
-  }
-
-  .toggle input:checked + .toggle-switch {
-    background: linear-gradient(135deg, rgba(166, 12, 219, 0.65), rgba(192, 75, 255, 0.55));
-    border-color: rgba(192, 75, 255, 0.8);
-    box-shadow: 0 0 16px rgba(192, 75, 255, 0.25);
-  }
-
-  .toggle input:checked + .toggle-switch .toggle-thumb {
-    transform: translateX(18px);
-    background: #ffffff;
-  }
-
-  .toggle input:focus-visible + .toggle-switch {
-    box-shadow: 0 0 0 3px rgba(166, 12, 219, 0.25);
   }
 
   .search-row {
@@ -4358,10 +4068,6 @@
       max-height: none;
     }
 
-    .guide-examples {
-      grid-template-columns: 1fr;
-    }
-
     .content {
       order: 1;
       grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
@@ -4447,46 +4153,6 @@
 
     .quick-add button {
       min-height: 42px;
-    }
-
-    .header-actions {
-      justify-items: end;
-      width: auto;
-    }
-
-    .header-tool-buttons {
-      justify-content: flex-end;
-    }
-
-    .header-left {
-      justify-items: start;
-    }
-
-    .header h1,
-    .header p {
-      text-align: left;
-    }
-
-    .toggle {
-      width: 100%;
-      align-items: flex-start;
-      line-height: 1.35;
-    }
-
-    .guide-actions {
-      justify-content: stretch;
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .progress-wrap {
-      width: auto;
-      min-width: 0;
-      text-align: right;
-    }
-
-    .progress-bar {
-      width: 100%;
     }
 
     .tabs {
@@ -4630,11 +4296,6 @@
     .confirm-actions button,
     .example-pill {
       width: 100%;
-    }
-
-    .header-tool-button {
-      width: 38px;
-      height: 38px;
     }
 
     .task {
