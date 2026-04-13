@@ -4,6 +4,21 @@
   import { browser } from '$app/environment';
   import { onMount, tick } from 'svelte';
   import {
+    CircleHelp,
+    Database,
+    Download,
+    ExternalLink,
+    Eye,
+    Filter,
+    Plus,
+    RefreshCw,
+    RotateCcw,
+    Trash2,
+    Unplug,
+    Upload,
+    X
+  } from 'lucide-svelte';
+  import {
     exportBackupJson,
     githubAddRepoSubscription,
     githubConnect,
@@ -190,6 +205,7 @@
   let confirmDeleteOpen = false;
   let confirmDeleteTaskId: string | null = null;
   let confirmDeleteTaskTitle = '';
+  let viewportWidth = 1440;
 
   const quickAddExamples: QuickAddExample[] = [
     { label: 'Proyecto y etiqueta', value: 'Preparar demo @Trabajo #frontend p2' },
@@ -318,6 +334,7 @@
   $: selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
   $: isProjectView = selectedProjectId !== null;
   $: projectSortMode = selectedProject?.sortMode ?? 'auto';
+  $: taskPanelAsModal = viewportWidth < 1280;
 
   $: pendingCount = mergeUniqueTasks([tasksByTab.inbox, tasksByTab.today, tasksByTab.upcoming, overdueTasks]).filter(
     (task) => task.status === 'todo'
@@ -1290,10 +1307,15 @@
   onMount(() => {
     if (browser) {
       quickGuideVisible = window.localStorage.getItem('kitodo.quickGuideVisible') !== '0';
+      viewportWidth = window.innerWidth;
     }
 
     bootstrap();
     quickInputRef?.focus();
+
+    const onResize = () => {
+      viewportWidth = window.innerWidth;
+    };
 
     const onKeyDown = async (event: KeyboardEvent) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -1497,10 +1519,12 @@
 
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('resize', onResize);
 
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('resize', onResize);
       clearUndoState();
       if (recurrenceToastTimer) {
         clearTimeout(recurrenceToastTimer);
@@ -1525,7 +1549,9 @@
             <h2>Filtros</h2>
             <p>Abre o cierra este panel con el botón `Filtros`, `Shift + F` o `Escape`.</p>
           </div>
-          <button class="icon-button" aria-label="Cerrar filtros" on:click={closeSidebar}>✕</button>
+          <button class="icon-button" aria-label="Cerrar filtros" on:click={closeSidebar}>
+            <X size={18} strokeWidth={2.1} />
+          </button>
         </div>
 
         <div class="side-block">
@@ -1577,8 +1603,14 @@
           {/if}
         </div>
 
-        <button class="clear-filters" on:click={() => (githubModalOpen = true)}>Mostrar panel de GitHub</button>
-        <button class="clear-filters" on:click={clearFilters}>Limpiar filtros</button>
+        <button class="clear-filters button-with-icon" on:click={() => (githubModalOpen = true)}>
+          <ExternalLink size={16} strokeWidth={2.1} />
+          <span>Mostrar panel de GitHub</span>
+        </button>
+        <button class="clear-filters button-with-icon" on:click={clearFilters}>
+          <RotateCcw size={16} strokeWidth={2.1} />
+          <span>Limpiar filtros</span>
+        </button>
       </aside>
     {/if}
 
@@ -1596,21 +1628,42 @@
           </label>
         </div>
         <div class="header-actions">
-          <button class="ghost-trigger" on:click={toggleSidebar}>
-            {expandedMode ? 'Ocultar filtros' : 'Filtros'}
-          </button>
-          <button class="ghost-trigger" on:click={() => (helpModalOpen = true)}>
-            Ayuda
-          </button>
-          <button class="backup-trigger" on:click={() => {
-            backupModalOpen = true;
-            backupNotice = '';
-          }}>
-            Respaldo
-          </button>
-          <div class="window-actions">
-            <button class="ghost-trigger compact" on:click={toggleWindowMaximize}>Maximizar</button>
-            <button class="ghost-trigger compact danger-soft" on:click={closeAppWindow}>Cerrar</button>
+          <div class="header-tool-buttons">
+            <button
+              class="header-tool-button"
+              aria-label={expandedMode ? 'Ocultar filtros' : 'Mostrar filtros'}
+              title={expandedMode ? 'Ocultar filtros' : 'Mostrar filtros'}
+              on:click={toggleSidebar}
+            >
+              <Filter size={18} strokeWidth={2.1} />
+            </button>
+            <button
+              class="header-tool-button"
+              aria-label="Abrir ayuda"
+              title="Abrir ayuda"
+              on:click={() => (helpModalOpen = true)}
+            >
+              <CircleHelp size={18} strokeWidth={2.1} />
+            </button>
+            <button
+              class="header-tool-button header-tool-button--accent"
+              aria-label="Abrir respaldo"
+              title="Abrir respaldo"
+              on:click={() => {
+                backupModalOpen = true;
+                backupNotice = '';
+              }}
+            >
+              <Database size={18} strokeWidth={2.1} />
+            </button>
+            <button
+              class="header-tool-button header-tool-button--danger"
+              aria-label="Cerrar aplicación"
+              title="Cerrar aplicación"
+              on:click={closeAppWindow}
+            >
+              <X size={18} strokeWidth={2.1} />
+            </button>
           </div>
           <div class="progress-wrap" title="Progreso del día">
             <span>{todayDoneCount}/{todayTotalCount}</span>
@@ -1650,7 +1703,9 @@
                 Los tokens `due` y `every` siguen estando en inglés porque son la sintaxis real del parser.
               </p>
             </div>
-            <button class="icon-button" aria-label="Ocultar guía rápida" on:click={hideQuickGuide}>✕</button>
+            <button class="icon-button" aria-label="Ocultar guía rápida" on:click={hideQuickGuide}>
+              <X size={18} strokeWidth={2.1} />
+            </button>
           </div>
           <div class="guide-examples">
             {#each quickAddExamples as example}
@@ -1669,7 +1724,10 @@
           </div>
           <div class="guide-actions">
             <span>Filtros: botón `Filtros` o `Shift + F`. Cierre: mismo botón o `Escape`.</span>
-            <button class="ghost-trigger compact" on:click={() => (helpModalOpen = true)}>Ver guía rápida</button>
+            <button class="ghost-trigger compact button-with-icon" on:click={() => (helpModalOpen = true)}>
+              <CircleHelp size={16} strokeWidth={2.1} />
+              <span>Ver guía rápida</span>
+            </button>
           </div>
         </section>
       {/if}
@@ -2002,146 +2060,301 @@
           {/if}
         </section>
 
-        <aside class="context-panel" transition:fade={{ duration: 120 }}>
-          {#if selectedMenuTask}
-            <div class="panel-head">
-              <h3>Acciones</h3>
-              <button class="icon-button" aria-label="Cerrar panel de tarea" on:click={closeTaskPanel}>✕</button>
-            </div>
-            <p class="context-title">{selectedMenuTask.title}</p>
-
-            <div class="menu-group">
-              <p>Prioridad</p>
-              <div class="menu-inline">
-                {#each [1, 2, 3, 4] as level}
-                  <button on:click={() => onUpdatePriority(selectedMenuTask.id, level)}>P{level}</button>
-                {/each}
-              </div>
-            </div>
-
-            <div class="menu-group">
-              <p>Fecha</p>
-              <div class="menu-inline">
-                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'today')}>Hoy</button>
-                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'tomorrow')}>Mañana</button>
-                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, null)}>Quitar</button>
-              </div>
-              <div class="date-picker" bind:this={datePickerRef}>
-                <button class="context-trigger date-trigger" class:open={datePickerOpen} on:click={toggleDatePicker}>
-                  {dueDateDraft || 'Seleccionar fecha'}
-                  <span class="order-chevron">▾</span>
+        {#if !taskPanelAsModal}
+          <aside class="context-panel" transition:fade={{ duration: 120 }}>
+            {#if selectedMenuTask}
+              <div class="panel-head">
+                <h3>Acciones</h3>
+                <button class="icon-button" aria-label="Cerrar panel de tarea" on:click={closeTaskPanel}>
+                  <X size={18} strokeWidth={2.1} />
                 </button>
-                {#if datePickerOpen}
-                  <div class="date-picker-menu" class:open-up={datePickerOpenUp} bind:this={datePickerMenuRef} transition:fade={{ duration: 120 }}>
-                    <div class="calendar-head">
-                      <button class="nav-btn" on:click={() => shiftCalendarMonth(-1)} aria-label="Mes anterior">‹</button>
-                      <strong>{calendarMonthLabel}</strong>
-                      <button class="nav-btn" on:click={() => shiftCalendarMonth(1)} aria-label="Mes siguiente">›</button>
+              </div>
+              <p class="context-title">{selectedMenuTask.title}</p>
+
+              <div class="menu-group">
+                <p>Prioridad</p>
+                <div class="menu-inline">
+                  {#each [1, 2, 3, 4] as level}
+                    <button on:click={() => onUpdatePriority(selectedMenuTask.id, level)}>P{level}</button>
+                  {/each}
+                </div>
+              </div>
+
+              <div class="menu-group">
+                <p>Fecha</p>
+                <div class="menu-inline">
+                  <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'today')}>Hoy</button>
+                  <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'tomorrow')}>Mañana</button>
+                  <button on:click={() => onPickDueShortcut(selectedMenuTask.id, null)}>Quitar</button>
+                </div>
+                <div class="date-picker" bind:this={datePickerRef}>
+                  <button class="context-trigger date-trigger" class:open={datePickerOpen} on:click={toggleDatePicker}>
+                    {dueDateDraft || 'Seleccionar fecha'}
+                    <span class="order-chevron">▾</span>
+                  </button>
+                  {#if datePickerOpen}
+                    <div class="date-picker-menu" class:open-up={datePickerOpenUp} bind:this={datePickerMenuRef} transition:fade={{ duration: 120 }}>
+                      <div class="calendar-head">
+                        <button class="nav-btn" on:click={() => shiftCalendarMonth(-1)} aria-label="Mes anterior">‹</button>
+                        <strong>{calendarMonthLabel}</strong>
+                        <button class="nav-btn" on:click={() => shiftCalendarMonth(1)} aria-label="Mes siguiente">›</button>
+                      </div>
+                      <div class="calendar-weekdays">
+                        <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span>
+                      </div>
+                      <div class="calendar-grid">
+                        {#each calendarCells as cell}
+                          {#if cell.iso}
+                            <button
+                              class="day-btn"
+                              class:selected={cell.selected}
+                              class:today={cell.isToday}
+                              on:click={() => applyDateFromPicker(selectedMenuTask.id, cell.iso!)}
+                            >
+                              {cell.label}
+                            </button>
+                          {:else}
+                            <span class="day-empty"></span>
+                          {/if}
+                        {/each}
+                      </div>
+                      <div class="menu-inline date-manual">
+                        <input class="date-field" placeholder="YYYY-MM-DD" bind:value={dueDateDraft} />
+                        <button on:click={() => applyManualDate(selectedMenuTask.id)}>Aplicar</button>
+                      </div>
                     </div>
-                    <div class="calendar-weekdays">
-                      <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span>
-                    </div>
-                    <div class="calendar-grid">
-                      {#each calendarCells as cell}
-                        {#if cell.iso}
-                          <button
-                            class="day-btn"
-                            class:selected={cell.selected}
-                            class:today={cell.isToday}
-                            on:click={() => applyDateFromPicker(selectedMenuTask.id, cell.iso!)}
-                          >
-                            {cell.label}
-                          </button>
-                        {:else}
-                          <span class="day-empty"></span>
-                        {/if}
+                  {/if}
+                </div>
+              </div>
+
+              <div class="menu-group">
+                <p>Recurrencia</p>
+                <div class="context-dropdown" bind:this={recurrenceDropdownRef}>
+                  <button
+                    class="context-trigger"
+                    class:open={recurrenceDropdownOpen}
+                    on:click={toggleRecurrenceDropdown}
+                  >
+                    {selectedRecurrenceLabel}
+                    <span class="order-chevron">▾</span>
+                  </button>
+                  {#if recurrenceDropdownOpen}
+                    <div class="context-menu" class:open-up={recurrenceMenuOpenUp} bind:this={recurrenceMenuRef} transition:fade={{ duration: 110 }}>
+                      {#each recurrenceOptions as option}
+                        <button
+                          class:active={(selectedMenuTask.recurrence ?? null) === option.value}
+                          on:click={() => onUpdateRecurrence(selectedMenuTask.id, option.value)}
+                        >
+                          {option.label}
+                        </button>
                       {/each}
                     </div>
-                    <div class="menu-inline date-manual">
-                      <input class="date-field" placeholder="YYYY-MM-DD" bind:value={dueDateDraft} />
-                      <button on:click={() => applyManualDate(selectedMenuTask.id)}>Aplicar</button>
+                  {/if}
+                </div>
+              </div>
+
+              <div class="menu-group">
+                <p>Proyecto</p>
+                <div class="context-dropdown" bind:this={projectDropdownRef}>
+                  <button
+                    class="context-trigger"
+                    class:open={projectDropdownOpen}
+                    on:click={toggleProjectDropdown}
+                  >
+                    {selectedProjectLabel}
+                    <span class="order-chevron">▾</span>
+                  </button>
+                  {#if projectDropdownOpen}
+                    <div class="context-menu" class:open-up={projectMenuOpenUp} bind:this={projectMenuRef} transition:fade={{ duration: 110 }}>
+                      <button
+                        class:active={selectedMenuTask.projectId === null}
+                        on:click={() => onMoveProject(selectedMenuTask.id, null)}
+                      >
+                        Bandeja
+                      </button>
+                      {#each projects as project}
+                        <button
+                          class:active={selectedMenuTask.projectId === project.id}
+                          on:click={() => onMoveProject(selectedMenuTask.id, project.id)}
+                        >
+                          @{project.name}
+                        </button>
+                      {/each}
                     </div>
-                  </div>
-                {/if}
+                  {/if}
+                </div>
+                <div class="menu-inline">
+                  <input placeholder="Crear proyecto..." bind:value={projectDraft} />
+                  <button on:click={() => onCreateAndMoveProject(selectedMenuTask.id)}>Crear</button>
+                </div>
               </div>
-            </div>
 
-            <div class="menu-group">
-              <p>Recurrencia</p>
-              <div class="context-dropdown" bind:this={recurrenceDropdownRef}>
-                <button
-                  class="context-trigger"
-                  class:open={recurrenceDropdownOpen}
-                  on:click={toggleRecurrenceDropdown}
-                >
-                  {selectedRecurrenceLabel}
-                  <span class="order-chevron">▾</span>
-                </button>
-                {#if recurrenceDropdownOpen}
-                  <div class="context-menu" class:open-up={recurrenceMenuOpenUp} bind:this={recurrenceMenuRef} transition:fade={{ duration: 110 }}>
-                    {#each recurrenceOptions as option}
-                      <button
-                        class:active={(selectedMenuTask.recurrence ?? null) === option.value}
-                        on:click={() => onUpdateRecurrence(selectedMenuTask.id, option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-            </div>
-
-            <div class="menu-group">
-              <p>Proyecto</p>
-              <div class="context-dropdown" bind:this={projectDropdownRef}>
-                <button
-                  class="context-trigger"
-                  class:open={projectDropdownOpen}
-                  on:click={toggleProjectDropdown}
-                >
-                  {selectedProjectLabel}
-                  <span class="order-chevron">▾</span>
-                </button>
-                {#if projectDropdownOpen}
-                  <div class="context-menu" class:open-up={projectMenuOpenUp} bind:this={projectMenuRef} transition:fade={{ duration: 110 }}>
-                    <button
-                      class:active={selectedMenuTask.projectId === null}
-                      on:click={() => onMoveProject(selectedMenuTask.id, null)}
-                    >
-                      Bandeja
-                    </button>
-                    {#each projects as project}
-                      <button
-                        class:active={selectedMenuTask.projectId === project.id}
-                        on:click={() => onMoveProject(selectedMenuTask.id, project.id)}
-                      >
-                        @{project.name}
-                      </button>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-              <div class="menu-inline">
-                <input placeholder="Crear proyecto..." bind:value={projectDraft} />
-                <button on:click={() => onCreateAndMoveProject(selectedMenuTask.id)}>Crear</button>
-              </div>
-            </div>
-
-            <button class="danger" on:click={() => requestDeleteTask(selectedMenuTask.id)}>Eliminar</button>
-            {#if selectedMenuTask.externalUrl}
-              <button on:click={() => openExternalUrl(selectedMenuTask.externalUrl!)}>Abrir en GitHub</button>
+              <button class="danger" on:click={() => requestDeleteTask(selectedMenuTask.id)}>Eliminar</button>
+              {#if selectedMenuTask.externalUrl}
+                <button on:click={() => openExternalUrl(selectedMenuTask.externalUrl!)}>Abrir en GitHub</button>
+              {/if}
+            {:else}
+              <h3>Panel de tarea</h3>
+              <p class="context-hint">
+                Selecciona una tarea con `⋯` para editar prioridad, fecha, recurrencia o proyecto. Cuando abras una tarea, podrás cerrar este panel con `✕` o `Escape`.
+              </p>
             {/if}
-          {:else}
-            <h3>Panel de tarea</h3>
-            <p class="context-hint">
-              Selecciona una tarea con `⋯` para editar prioridad, fecha, recurrencia o proyecto. Cuando abras una tarea, podrás cerrar este panel con `✕` o `Escape`.
-            </p>
-          {/if}
-        </aside>
+          </aside>
+        {/if}
       </div>
     </section>
   </section>
+
+  {#if taskPanelAsModal && selectedMenuTask}
+    <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
+      <div class="confirm-modal task-modal" transition:fly={{ y: 10, duration: 160 }}>
+        <div class="panel-head task-modal-head">
+          <div class="task-modal-title-block">
+            <h4>Acciones</h4>
+            <p class="context-title task-modal-title">{selectedMenuTask.title}</p>
+          </div>
+          <button class="icon-button" aria-label="Cerrar panel de tarea" on:click={closeTaskPanel}>
+            <X size={18} strokeWidth={2.1} />
+          </button>
+        </div>
+
+        <div class="menu-group">
+          <p>Prioridad</p>
+          <div class="menu-inline task-modal-actions">
+            {#each [1, 2, 3, 4] as level}
+              <button class="button-secondary compact-action" on:click={() => onUpdatePriority(selectedMenuTask.id, level)}>P{level}</button>
+            {/each}
+          </div>
+        </div>
+
+        <div class="menu-group">
+          <p>Fecha</p>
+          <div class="menu-inline task-modal-actions">
+            <button class="button-secondary compact-action" on:click={() => onPickDueShortcut(selectedMenuTask.id, 'today')}>Hoy</button>
+            <button class="button-secondary compact-action" on:click={() => onPickDueShortcut(selectedMenuTask.id, 'tomorrow')}>Mañana</button>
+            <button class="button-secondary compact-action" on:click={() => onPickDueShortcut(selectedMenuTask.id, null)}>Quitar</button>
+          </div>
+          <div class="date-picker" bind:this={datePickerRef}>
+            <button class="context-trigger date-trigger" class:open={datePickerOpen} on:click={toggleDatePicker}>
+              {dueDateDraft || 'Seleccionar fecha'}
+              <span class="order-chevron">▾</span>
+            </button>
+            {#if datePickerOpen}
+              <div class="date-picker-menu" class:open-up={datePickerOpenUp} bind:this={datePickerMenuRef} transition:fade={{ duration: 120 }}>
+                <div class="calendar-head">
+                  <button class="nav-btn" on:click={() => shiftCalendarMonth(-1)} aria-label="Mes anterior">‹</button>
+                  <strong>{calendarMonthLabel}</strong>
+                  <button class="nav-btn" on:click={() => shiftCalendarMonth(1)} aria-label="Mes siguiente">›</button>
+                </div>
+                <div class="calendar-weekdays">
+                  <span>Do</span><span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span>
+                </div>
+                <div class="calendar-grid">
+                  {#each calendarCells as cell}
+                    {#if cell.iso}
+                      <button
+                        class="day-btn"
+                        class:selected={cell.selected}
+                        class:today={cell.isToday}
+                        on:click={() => applyDateFromPicker(selectedMenuTask.id, cell.iso!)}
+                      >
+                        {cell.label}
+                      </button>
+                    {:else}
+                      <span class="day-empty"></span>
+                    {/if}
+                  {/each}
+                </div>
+                <div class="menu-inline date-manual task-modal-actions">
+                  <input class="date-field task-modal-input" placeholder="YYYY-MM-DD" bind:value={dueDateDraft} />
+                  <button class="button-primary compact-action" on:click={() => applyManualDate(selectedMenuTask.id)}>Aplicar</button>
+                </div>
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <div class="menu-group">
+          <p>Recurrencia</p>
+          <div class="context-dropdown" bind:this={recurrenceDropdownRef}>
+            <button
+              class="context-trigger"
+              class:open={recurrenceDropdownOpen}
+              on:click={toggleRecurrenceDropdown}
+            >
+              {selectedRecurrenceLabel}
+              <span class="order-chevron">▾</span>
+            </button>
+            {#if recurrenceDropdownOpen}
+              <div class="context-menu" class:open-up={recurrenceMenuOpenUp} bind:this={recurrenceMenuRef} transition:fade={{ duration: 110 }}>
+                {#each recurrenceOptions as option}
+                  <button
+                    class:active={(selectedMenuTask.recurrence ?? null) === option.value}
+                    on:click={() => onUpdateRecurrence(selectedMenuTask.id, option.value)}
+                  >
+                    {option.label}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </div>
+
+        <div class="menu-group">
+          <p>Proyecto</p>
+          <div class="context-dropdown" bind:this={projectDropdownRef}>
+            <button
+              class="context-trigger"
+              class:open={projectDropdownOpen}
+              on:click={toggleProjectDropdown}
+            >
+              {selectedProjectLabel}
+              <span class="order-chevron">▾</span>
+            </button>
+            {#if projectDropdownOpen}
+              <div class="context-menu" class:open-up={projectMenuOpenUp} bind:this={projectMenuRef} transition:fade={{ duration: 110 }}>
+                <button
+                  class:active={selectedMenuTask.projectId === null}
+                  on:click={() => onMoveProject(selectedMenuTask.id, null)}
+                >
+                  Bandeja
+                </button>
+                {#each projects as project}
+                  <button
+                    class:active={selectedMenuTask.projectId === project.id}
+                    on:click={() => onMoveProject(selectedMenuTask.id, project.id)}
+                  >
+                    @{project.name}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+          <div class="menu-inline task-modal-actions">
+            <input class="task-modal-input" placeholder="Crear proyecto..." bind:value={projectDraft} />
+            <button class="button-primary compact-action" on:click={() => onCreateAndMoveProject(selectedMenuTask.id)}>Crear</button>
+          </div>
+        </div>
+
+        <div class="confirm-actions">
+          <button class="button-danger button-with-icon" on:click={() => requestDeleteTask(selectedMenuTask.id)}>
+            <Trash2 size={16} strokeWidth={2.1} />
+            <span>Eliminar tarea</span>
+          </button>
+          {#if selectedMenuTask.externalUrl}
+            <button class="button-secondary button-with-icon" on:click={() => openExternalUrl(selectedMenuTask.externalUrl!)}>
+              <ExternalLink size={16} strokeWidth={2.1} />
+              <span>Abrir en GitHub</span>
+            </button>
+          {/if}
+          <button class="button-secondary button-with-icon" on:click={closeTaskPanel}>
+            <X size={16} strokeWidth={2.1} />
+            <span>Cerrar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 
   {#if undoState}
     <div class="snackbar" transition:fade={{ duration: 140 }}>
@@ -2170,7 +2383,7 @@
               confirmDeleteTaskTitle = '';
             }}
           >
-            ✕
+            <X size={18} strokeWidth={2.1} />
           </button>
         </div>
         <p>
@@ -2198,7 +2411,9 @@
       <div class="confirm-modal" transition:fly={{ y: 10, duration: 160 }}>
         <div class="modal-head">
           <h4>¿Reiniciar orden manual?</h4>
-          <button class="icon-button" aria-label="Cerrar confirmación" on:click={() => (confirmResetOpen = false)}>✕</button>
+          <button class="icon-button" aria-label="Cerrar confirmación" on:click={() => (confirmResetOpen = false)}>
+            <X size={18} strokeWidth={2.1} />
+          </button>
         </div>
         <p>Se limpiará el orden manual del proyecto y volverá a orden automático.</p>
         <div class="confirm-actions">
@@ -2214,12 +2429,20 @@
       <div class="confirm-modal backup-modal" transition:fly={{ y: 10, duration: 160 }}>
         <div class="modal-head">
           <h4>Exportar / importar tareas</h4>
-          <button class="icon-button" aria-label="Cerrar respaldo" on:click={() => (backupModalOpen = false)}>✕</button>
+          <button class="icon-button" aria-label="Cerrar respaldo" on:click={() => (backupModalOpen = false)}>
+            <X size={18} strokeWidth={2.1} />
+          </button>
         </div>
         <p>Genera un JSON con tus tareas activas y completadas, o importa un backup existente haciendo merge por ID.</p>
         <div class="backup-actions">
-          <button class="button-primary" disabled={backupBusy} on:click={onExportBackup}>Exportar JSON</button>
-          <button class="button-secondary" disabled={backupBusy} on:click={triggerImportBackupFile}>Importar archivo</button>
+          <button class="button-primary button-with-icon" disabled={backupBusy} on:click={onExportBackup}>
+            <Download size={16} strokeWidth={2.1} />
+            <span>Exportar JSON</span>
+          </button>
+          <button class="button-secondary button-with-icon" disabled={backupBusy} on:click={triggerImportBackupFile}>
+            <Upload size={16} strokeWidth={2.1} />
+            <span>Importar archivo</span>
+          </button>
           <input
             bind:this={backupFileInputRef}
             class="hidden-file"
@@ -2237,9 +2460,13 @@
           <p class="backup-notice">{backupNotice}</p>
         {/if}
         <div class="confirm-actions">
-          <button class="button-secondary" on:click={() => (backupModalOpen = false)}>Cerrar</button>
-          <button class="button-primary" disabled={backupBusy || !backupJsonDraft.trim()} on:click={onImportBackupDraft}>
-            Importar JSON pegado
+          <button class="button-secondary button-with-icon" on:click={() => (backupModalOpen = false)}>
+            <X size={16} strokeWidth={2.1} />
+            <span>Cerrar</span>
+          </button>
+          <button class="button-primary button-with-icon" disabled={backupBusy || !backupJsonDraft.trim()} on:click={onImportBackupDraft}>
+            <Upload size={16} strokeWidth={2.1} />
+            <span>Importar JSON pegado</span>
           </button>
         </div>
       </div>
@@ -2251,7 +2478,9 @@
       <div class="confirm-modal github-modal" transition:fly={{ y: 10, duration: 160 }}>
         <div class="modal-head">
           <h4>Configuración de GitHub</h4>
-          <button class="icon-button" aria-label="Cerrar configuración de GitHub" on:click={() => (githubModalOpen = false)}>✕</button>
+          <button class="icon-button" aria-label="Cerrar configuración de GitHub" on:click={() => (githubModalOpen = false)}>
+            <X size={18} strokeWidth={2.1} />
+          </button>
         </div>
 
         <p>
@@ -2270,7 +2499,10 @@
           </div>
           <div class="github-doc-links">
             {#each githubDocLinks as link}
-              <button class="ghost-trigger compact" on:click={() => openExternalUrl(link.url)}>{link.label}</button>
+              <button class="ghost-trigger compact button-with-icon" on:click={() => openExternalUrl(link.url)}>
+                <ExternalLink size={16} strokeWidth={2.1} />
+                <span>{link.label}</span>
+              </button>
             {/each}
           </div>
         </section>
@@ -2462,13 +2694,22 @@
             {/if}
 
             <div class="gh-actions">
-              <button class="button-primary" disabled={githubBusy} on:click={onGithubSyncNow}>Sincronizar ahora</button>
-              <button class="button-secondary" disabled={githubBusy} on:click={onGithubDisconnect}>Desconectar</button>
+              <button class="button-primary button-with-icon" disabled={githubBusy} on:click={onGithubSyncNow}>
+                <RefreshCw size={16} strokeWidth={2.1} />
+                <span>Sincronizar ahora</span>
+              </button>
+              <button class="button-secondary button-with-icon" disabled={githubBusy} on:click={onGithubDisconnect}>
+                <Unplug size={16} strokeWidth={2.1} />
+                <span>Desconectar</span>
+              </button>
             </div>
 
             <div class="gh-add-repo">
               <input class="github-repo-input" placeholder="owner/repo" bind:value={githubRepoInput} />
-              <button class="button-primary" disabled={githubBusy} on:click={onGithubAddRepo}>Añadir</button>
+              <button class="button-primary button-with-icon" disabled={githubBusy} on:click={onGithubAddRepo}>
+                <Plus size={16} strokeWidth={2.1} />
+                <span>Añadir</span>
+              </button>
             </div>
             <div class="gh-repos">
               {#each githubRepoSubs as sub}
@@ -2478,7 +2719,10 @@
                     <button class="button-secondary compact-action" on:click={() => onGithubToggleRepo(sub)}>
                       {sub.enabled ? 'Desactivar' : 'Activar'}
                     </button>
-                    <button class="button-danger compact-action" on:click={() => onGithubRemoveRepo(sub)}>Quitar</button>
+                    <button class="button-danger compact-action button-with-icon" on:click={() => onGithubRemoveRepo(sub)}>
+                      <Trash2 size={14} strokeWidth={2.1} />
+                      <span>Quitar</span>
+                    </button>
                   </div>
                 </div>
               {/each}
@@ -2491,7 +2735,10 @@
         {/if}
 
         <div class="confirm-actions">
-          <button class="button-secondary" on:click={() => (githubModalOpen = false)}>Cerrar</button>
+          <button class="button-secondary button-with-icon" on:click={() => (githubModalOpen = false)}>
+            <X size={16} strokeWidth={2.1} />
+            <span>Cerrar</span>
+          </button>
         </div>
       </div>
     </div>
@@ -2502,7 +2749,9 @@
       <div class="confirm-modal help-modal" transition:fly={{ y: 10, duration: 160 }}>
         <div class="modal-head">
           <h4>Guía rápida de KitoDo</h4>
-          <button class="icon-button" aria-label="Cerrar ayuda" on:click={() => (helpModalOpen = false)}>✕</button>
+          <button class="icon-button" aria-label="Cerrar ayuda" on:click={() => (helpModalOpen = false)}>
+            <X size={18} strokeWidth={2.1} />
+          </button>
         </div>
         <p>
           KitoDo está pensado para capturar tareas rápido y luego refinarlas desde filtros y el panel lateral.
@@ -2528,8 +2777,14 @@
           {/each}
         </div>
         <div class="confirm-actions">
-          <button class="ghost-trigger compact" on:click={showQuickGuide}>Mostrar guía</button>
-          <button on:click={() => (helpModalOpen = false)}>Cerrar</button>
+          <button class="ghost-trigger compact button-with-icon" on:click={showQuickGuide}>
+            <Eye size={16} strokeWidth={2.1} />
+            <span>Mostrar guía</span>
+          </button>
+          <button class="button-secondary button-with-icon" on:click={() => (helpModalOpen = false)}>
+            <X size={16} strokeWidth={2.1} />
+            <span>Cerrar</span>
+          </button>
         </div>
       </div>
     </div>
@@ -2709,8 +2964,9 @@
   .header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   .header-left {
@@ -2721,11 +2977,18 @@
   }
 
   .header-actions {
+    display: grid;
+    gap: 8px;
+    justify-items: end;
+    margin-left: auto;
+  }
+
+  .header-tool-buttons {
     display: flex;
     align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
     justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .header h1 {
@@ -2769,6 +3032,48 @@
 
   .ghost-trigger.compact {
     padding: 8px 10px;
+  }
+
+  .button-with-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .button-with-icon :global(svg) {
+    flex: 0 0 auto;
+  }
+
+  .header-tool-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--k-text);
+    display: inline-grid;
+    place-items: center;
+    cursor: pointer;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+
+  .header-tool-button:hover {
+    transform: translateY(-1px);
+    border-color: rgba(192, 75, 255, 0.46);
+    background: rgba(192, 75, 255, 0.1);
+    box-shadow: 0 0 14px rgba(192, 75, 255, 0.14);
+  }
+
+  .header-tool-button--accent {
+    border-color: rgba(192, 75, 255, 0.42);
+    background: linear-gradient(135deg, rgba(166, 12, 219, 0.24), rgba(192, 75, 255, 0.18));
+    color: #efd8ff;
+  }
+
+  .header-tool-button--danger {
+    border-color: rgba(255, 120, 145, 0.32);
+    color: #ffd7e1;
   }
 
   .button-primary,
@@ -2911,6 +3216,7 @@
   }
 
   .quick-add button {
+    min-width: 120px;
     padding: 0 14px;
     font-weight: 600;
     background: linear-gradient(135deg, rgba(166, 12, 219, 0.52), rgba(192, 75, 255, 0.44));
@@ -3246,7 +3552,7 @@
 
   .workbench {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 30%);
     gap: 12px;
     align-items: stretch;
     margin-top: 2px;
@@ -3286,14 +3592,16 @@
   .task {
     position: relative;
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    width: 100%;
+    min-width: 0;
     align-items: center;
     gap: 10px;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-left: 3px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
-    padding: 10px;
+    padding: 10px 52px 10px 10px;
     transition: opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
   }
 
@@ -3338,12 +3646,14 @@
 
   .task-body {
     min-width: 0;
+    overflow: hidden;
   }
 
   .title {
     border: none;
     background: transparent;
     text-align: left;
+    width: 100%;
     padding: 2px;
     min-height: 28px;
     color: var(--k-text);
@@ -3421,8 +3731,12 @@
   }
 
   .menu-wrap {
+    position: absolute;
+    top: 10px;
+    right: 10px;
     display: grid;
     justify-items: end;
+    min-width: 32px;
   }
 
   .more {
@@ -3442,6 +3756,7 @@
     box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
     max-height: none;
     min-height: 0;
+    min-width: 0;
     align-self: stretch;
     overflow: visible;
     position: relative;
@@ -3735,6 +4050,66 @@
     scrollbar-color: rgba(192, 75, 255, 0.56) rgba(255, 255, 255, 0.05);
   }
 
+  .task-modal {
+    width: min(560px, 94vw);
+    max-height: min(88vh, 860px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: rgba(192, 75, 255, 0.56) rgba(255, 255, 255, 0.05);
+    gap: 14px;
+  }
+
+  .task-modal-head {
+    align-items: flex-start;
+  }
+
+  .task-modal-title-block {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+  }
+
+  .task-modal-title {
+    overflow-wrap: anywhere;
+  }
+
+  .task-modal .menu-group {
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .task-modal .menu-group p {
+    color: #d9c2ef;
+  }
+
+  .task-modal-actions {
+    align-items: stretch;
+  }
+
+  .task-modal-actions button {
+    min-height: 38px;
+  }
+
+  .task-modal-input {
+    width: 100%;
+    min-height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(180deg, rgba(28, 18, 40, 0.92), rgba(18, 14, 28, 0.92));
+    color: var(--k-text);
+    padding: 9px 11px;
+    box-shadow: inset 0 0 0 1px rgba(166, 12, 219, 0.1);
+  }
+
+  .task-modal-input:focus {
+    outline: none;
+    border-color: rgba(192, 75, 255, 0.82);
+    box-shadow: 0 0 0 2px rgba(166, 12, 219, 0.22), inset 0 0 0 1px rgba(166, 12, 219, 0.12);
+  }
+
   .github-config-grid {
     display: grid;
     gap: 10px;
@@ -3968,7 +4343,7 @@
     cursor: pointer;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 1280px) {
     .panel {
       padding: 14px;
       overflow: auto;
@@ -4013,9 +4388,47 @@
     .context-panel {
       order: -1;
     }
+
+    .task {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas:
+        'check body'
+        'check badge';
+      padding-right: 52px;
+    }
+
+    .check {
+      grid-area: check;
+      align-self: start;
+      margin-top: 4px;
+    }
+
+    .task-body {
+      grid-area: body;
+    }
+
+    .title {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .meta-line {
+      overflow: hidden;
+    }
+
+    .priority-badge {
+      grid-area: badge;
+      justify-self: start;
+    }
+
+    .menu-wrap {
+      top: 8px;
+      right: 8px;
+    }
   }
 
-  @media (max-width: 620px) {
+  @media (max-width: 960px) {
     .shell {
       padding: 0;
     }
@@ -4036,27 +4449,17 @@
       min-height: 42px;
     }
 
-    .header {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 12px;
-    }
-
     .header-actions {
-      justify-content: stretch;
-      flex-direction: column;
-      align-items: stretch;
+      justify-items: end;
+      width: auto;
     }
 
-    .window-actions,
-    .guide-actions {
-      justify-content: stretch;
-      flex-direction: column;
-      align-items: stretch;
+    .header-tool-buttons {
+      justify-content: flex-end;
     }
 
     .header-left {
-      justify-items: stretch;
+      justify-items: start;
     }
 
     .header h1,
@@ -4070,21 +4473,16 @@
       line-height: 1.35;
     }
 
-    .backup-trigger {
-      width: 100%;
-      min-height: 42px;
-    }
-
-    .ghost-trigger,
-    .icon-button {
-      width: 100%;
-      min-height: 42px;
+    .guide-actions {
+      justify-content: stretch;
+      flex-direction: column;
+      align-items: stretch;
     }
 
     .progress-wrap {
-      width: 100%;
+      width: auto;
       min-width: 0;
-      text-align: left;
+      text-align: right;
     }
 
     .progress-bar {
@@ -4126,34 +4524,6 @@
       min-width: 0;
     }
 
-    .task {
-      grid-template-columns: auto 1fr auto;
-      grid-template-areas:
-        'check body menu'
-        'check badge menu';
-    }
-
-    .check {
-      grid-area: check;
-      align-self: start;
-      margin-top: 4px;
-    }
-
-    .task-body {
-      grid-area: body;
-    }
-
-    .priority-badge {
-      grid-area: badge;
-      justify-self: start;
-    }
-
-    .menu-wrap {
-      grid-area: menu;
-      justify-self: end;
-      align-self: start;
-    }
-
     .gh-inline,
     .gh-add-repo,
     .gh-repo-item,
@@ -4186,6 +4556,11 @@
     .modal-head {
       align-items: stretch;
       flex-direction: column;
+    }
+
+    .task-modal .panel-head {
+      align-items: flex-start;
+      flex-direction: row;
     }
 
     .date-picker-menu {
@@ -4255,6 +4630,11 @@
     .confirm-actions button,
     .example-pill {
       width: 100%;
+    }
+
+    .header-tool-button {
+      width: 38px;
+      height: 38px;
     }
 
     .task {
