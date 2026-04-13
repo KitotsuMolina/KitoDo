@@ -93,6 +93,22 @@ function getContentType(filePath) {
   }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseJsonSafe(raw) {
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 async function startStaticServer() {
   if (isDev || staticServer) {
     return;
@@ -158,6 +174,21 @@ async function waitForServer(url, attempts = 60, delayMs = 250) {
   throw new Error('El sidecar Rust no respondió a tiempo.');
 }
 
+async function waitForRenderer(url, attempts = 60, delayMs = 250) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      const response = await fetch(url, { method: 'GET' });
+      if (response.ok) {
+        return;
+      }
+    } catch {}
+
+    await sleep(delayMs);
+  }
+
+  throw new Error(`El renderer no respondió a tiempo en ${url}.`);
+}
+
 async function startSidecar() {
   if (sidecarProcess) {
     return;
@@ -184,6 +215,10 @@ async function startSidecar() {
     }
   });
 
+  sidecarProcess.once('error', (error) => {
+    console.error(`No se pudo iniciar kitodo-server: ${error.message}`);
+  });
+
   apiBaseUrl = `http://${serverHost}:${port}`;
   await waitForServer(apiBaseUrl);
 }
@@ -201,12 +236,21 @@ async function invoke(command, payload = {}) {
     body: JSON.stringify(payload ?? {})
   });
 
-  const data = await response.json();
+  const raw = await response.text();
+  const data = parseJsonSafe(raw);
   if (!response.ok) {
-    throw new Error(data?.error || `Falló la invocación ${command}`);
+    throw new Error(data?.error || raw || `Falló la invocación ${command}`);
   }
 
   return data;
+}
+
+async function loadWindowContent(win, url) {
+  if (isDev) {
+    await waitForRenderer(url, 80, 250);
+  }
+
+  await win.loadURL(url);
 }
 
 async function createWindow() {
@@ -254,10 +298,16 @@ async function createWindow() {
     shell.openExternal(url);
   });
 
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (!isQuitting) {
+      console.error(`El renderer terminó inesperadamente (${details.reason}).`);
+    }
+  });
+
   if (isDev) {
-    await mainWindow.loadURL(devServerUrl);
+    await loadWindowContent(mainWindow, devServerUrl);
   } else {
-    await mainWindow.loadURL(staticBaseUrl);
+    await loadWindowContent(mainWindow, staticBaseUrl);
   }
 }
 
@@ -345,4 +395,8 @@ app.whenReady()
 
 process.on('unhandledRejection', (error) => {
   console.error('Unhandled rejection en main:', error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Excepción no controlada en main:', error);
 });

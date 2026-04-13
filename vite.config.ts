@@ -5,7 +5,17 @@ export default defineConfig({
   plugins: [sveltekit()],
   clearScreen: false,
   server: {
+    host: '127.0.0.1',
     port: 5173,
-    strictPort: true
+    strictPort: true,
+    watch: {
+      ignored: [
+        '**/.flatpak-builder/**',
+        '**/build-flatpak/**',
+        '**/dist-electron/**',
+        '**/build/**',
+        '**/src-tauri/target/**'
+      ]
+    }
   }
 });

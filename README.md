@@ -8,6 +8,138 @@ KitoDo es una app de tareas estilo launcher para Linux. El runtime actual usa:
 
 La app mantiene una arquitectura de bajo acoplamiento: Electron solo hospeda la ventana y actúa como bridge seguro; toda la lógica de datos y GitHub vive en Rust.
 
+## Guía rápida de uso
+
+### Qué es KitoDo
+
+KitoDo está pensado para capturar tareas muy rápido y ordenarlas después sin salir del teclado.
+
+La idea principal es:
+
+- escribir una tarea en una sola línea
+- añadir proyecto y etiquetas directamente en el texto
+- usar filtros y panel lateral para refinar prioridad, fecha y repetición
+
+### Cómo crear tareas
+
+La forma más rápida es usar la entrada principal de la app.
+
+Ejemplos:
+
+```text
+Preparar demo @Trabajo #frontend p2
+Pagar dominio @Admin #finanzas due tomorrow
+Plan semanal @Casa #rutina every week
+```
+
+### Sintaxis rápida
+
+KitoDo entiende estos fragmentos dentro de la línea:
+
+- `@Proyecto`: asigna el proyecto
+- `#tag`: añade una etiqueta
+- `p1` a `p4`: define prioridad
+- `due today`, `due tomorrow` o `due YYYY-MM-DD`: define fecha
+- `every day`, `every week`, `every month` o `every mon..sun`: define repetición
+
+Importante:
+
+- los tokens `due` y `every` siguen estando en inglés porque forman parte de la sintaxis real del parser
+- el texto del título puede ir en español sin problema
+
+### Filtros y paneles
+
+El panel lateral de filtros permite cambiar vista, filtrar por proyecto, etiqueta y abrir la configuración de GitHub.
+
+Puedes abrirlo o cerrarlo de tres formas:
+
+- botón `Filtros`
+- atajo `Shift + F`
+- tecla `Escape`
+
+El panel de tarea se abre con el botón `⋯` de cada tarea. Desde ahí puedes cambiar:
+
+- prioridad
+- fecha
+- repetición
+- proyecto
+- eliminación
+
+Cuando el panel está abierto, puedes cerrarlo con:
+
+- botón `✕`
+- tecla `Escape`
+
+### Eliminar tareas
+
+Eliminar ya no es una acción silenciosa.
+
+Ahora KitoDo:
+
+- pide confirmación antes de borrar
+- muestra un aviso de deshacer durante unos segundos
+
+### Atajos principales
+
+- `Ctrl + K`: enfocar entrada rápida
+- `Ctrl + F`: enfocar buscador
+- `/`: enfocar buscador
+- `Ctrl + 1`: ir a Bandeja
+- `Ctrl + 2`: ir a Hoy
+- `Ctrl + 3`: ir a Próximos
+- `Shift + F`: abrir o cerrar filtros
+- `j` / `k`: mover selección de tarea
+- `Enter`: editar título de la tarea seleccionada
+- `x`: completar o reabrir tarea seleccionada
+- `Delete`: pedir eliminación de la tarea seleccionada
+- `?`: abrir ayuda
+- `Escape`: cerrar modales, paneles o filtros
+- `F11`: maximizar o restaurar ventana
+
+### GitHub, backups y notificaciones
+
+KitoDo también incluye:
+
+- integración con GitHub
+- exportación e importación en JSON
+
+### Cómo preparar GitHub correctamente
+
+No necesitas instalar GitHub CLI ni herramientas extra para la sincronización.
+
+Sí necesitas:
+
+- conexión a internet
+- una cuenta de GitHub
+- un `personal access token (classic)` si quieres importar notificaciones de GitHub
+- un llavero del sistema disponible en Linux para guardar el token de forma segura
+
+Pasos recomendados:
+
+1. Abre el panel de GitHub desde KitoDo.
+2. Crea un `personal access token (classic)` en GitHub.
+3. Si quieres notificaciones, usa token classic. Los fine-grained no sirven para el endpoint de notifications.
+4. Si trabajas con repos privados, añade permisos suficientes para esos repos.
+5. Conecta el token en KitoDo.
+6. Añade uno o más repos con formato `owner/repo`.
+7. Activa qué quieres importar:
+   - revisiones de PR
+   - issues asignadas
+   - notificaciones
+8. Ajusta el intervalo de sincronización.
+
+Notas importantes:
+
+- KitoDo importa las notificaciones que GitHub ya te entrega; no sustituye la configuración de notificaciones de tu cuenta.
+- Si el token no se guarda correctamente, revisa que tu entorno Linux tenga disponible GNOME Keyring, KWallet o un servicio compatible con Secret Service.
+- Para que GitHub te genere notificaciones útiles, también debes estar suscrito, mencionado, asignado o participar en los hilos correspondientes.
+
+Estado actual de notificaciones:
+
+- la importación de notificaciones de GitHub sí está disponible
+- todavía no hay notificaciones locales del sistema para tareas con fecha
+- la base del producto ya deja claro el hueco funcional, pero esa integración queda para una segunda fase para no meter una implementación a medias en Electron
+
 ## Stack
 
 - Electron

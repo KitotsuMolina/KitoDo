@@ -50,29 +50,49 @@
   type Tab = 'inbox' | 'today' | 'upcoming';
 
   const tabNames: Record<Tab, string> = {
-    inbox: 'Inbox',
+    inbox: 'Bandeja',
     today: 'Hoy',
     upcoming: 'Próximos'
   };
 
   const recurrenceOptions: Array<{ value: string | null; label: string }> = [
-    { value: null, label: 'None' },
-    { value: 'daily', label: 'Daily' },
-    { value: 'weekly', label: 'Weekly' },
-    { value: 'monthly', label: 'Monthly' },
-    { value: 'weekday:mon', label: 'Mon' },
-    { value: 'weekday:tue', label: 'Tue' },
-    { value: 'weekday:wed', label: 'Wed' },
-    { value: 'weekday:thu', label: 'Thu' },
-    { value: 'weekday:fri', label: 'Fri' },
-    { value: 'weekday:sat', label: 'Sat' },
-    { value: 'weekday:sun', label: 'Sun' }
+    { value: null, label: 'Sin repetición' },
+    { value: 'daily', label: 'Cada día' },
+    { value: 'weekly', label: 'Cada semana' },
+    { value: 'monthly', label: 'Cada mes' },
+    { value: 'weekday:mon', label: 'Lunes' },
+    { value: 'weekday:tue', label: 'Martes' },
+    { value: 'weekday:wed', label: 'Miércoles' },
+    { value: 'weekday:thu', label: 'Jueves' },
+    { value: 'weekday:fri', label: 'Viernes' },
+    { value: 'weekday:sat', label: 'Sábado' },
+    { value: 'weekday:sun', label: 'Domingo' }
   ];
 
   type UndoState = {
     taskId: string;
     title: string;
     timerId: ReturnType<typeof setTimeout>;
+  };
+
+  type ShortcutItem = {
+    keys: string[];
+    description: string;
+  };
+
+  type QuickAddExample = {
+    label: string;
+    value: string;
+  };
+
+  type GithubSetupItem = {
+    title: string;
+    description: string;
+  };
+
+  type GithubDocLink = {
+    label: string;
+    url: string;
   };
 
   let currentTab: Tab = 'inbox';
@@ -153,7 +173,7 @@
   let githubRepoInput = '';
   let githubBusy = false;
   let githubMessage = '';
-  let githubPanelOpen = false;
+  let githubModalOpen = false;
   let githubAccountDropdownOpen = false;
   let githubIntervalDropdownOpen = false;
   let githubProjectDropdownOpen = false;
@@ -165,6 +185,90 @@
   let backupJsonDraft = '';
   let backupNotice = '';
   let backupFileInputRef: HTMLInputElement | null = null;
+  let helpModalOpen = false;
+  let quickGuideVisible = true;
+  let confirmDeleteOpen = false;
+  let confirmDeleteTaskId: string | null = null;
+  let confirmDeleteTaskTitle = '';
+
+  const quickAddExamples: QuickAddExample[] = [
+    { label: 'Proyecto y etiqueta', value: 'Preparar demo @Trabajo #frontend p2' },
+    { label: 'Con fecha', value: 'Pagar dominio @Admin #finanzas due tomorrow' },
+    { label: 'Recurrente', value: 'Plan semanal @Casa #rutina every week' }
+  ];
+
+  const githubSetupItems: GithubSetupItem[] = [
+    {
+      title: 'No necesitas instalar GitHub CLI',
+      description: 'La integración usa la API de GitHub directamente desde KitoDo. Solo necesitas conexión a internet.'
+    },
+    {
+      title: 'Necesitas una cuenta de GitHub',
+      description: 'KitoDo importa PRs, issues asignadas y notificaciones usando tu identidad de GitHub.'
+    },
+    {
+      title: 'Usa un personal access token classic',
+      description: 'Las notificaciones de GitHub no funcionan con fine-grained tokens. Para repos privados, añade también acceso `repo`.'
+    },
+    {
+      title: 'Activa un keyring en Linux',
+      description: 'KitoDo guarda el token en el llavero del sistema. Si falla el guardado, revisa GNOME Keyring, KWallet o Secret Service.'
+    },
+    {
+      title: 'Debes estar suscrito o participando en GitHub',
+      description: 'Las notificaciones aparecen cuando GitHub ya te las envía: repos observados, conversaciones asignadas o menciones.'
+    }
+  ];
+
+  const githubDocLinks: GithubDocLink[] = [
+    { label: 'Crear token classic', url: 'https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens' },
+    { label: 'API de notifications', url: 'https://docs.github.com/en/rest/activity/notifications' },
+    { label: 'Configurar notificaciones', url: 'https://docs.github.com/github/managing-subscriptions-and-notifications-on-github/setting-up-notifications/configuring-notifications' }
+  ];
+
+  const shortcutSections: Array<{ title: string; items: ShortcutItem[] }> = [
+    {
+      title: 'Creación rápida',
+      items: [
+        { keys: ['@proyecto'], description: 'Asigna el proyecto de la tarea' },
+        { keys: ['#tag'], description: 'Añade una o varias etiquetas' },
+        { keys: ['p1', 'p4'], description: 'Define prioridad de 1 a 4' },
+        { keys: ['due', 'today'], description: 'Fecha con `today`, `tomorrow` o `YYYY-MM-DD`' },
+        { keys: ['every', 'week'], description: 'Repite con `day`, `week`, `month` o `mon..sun`' }
+      ]
+    },
+    {
+      title: 'Navegacion',
+      items: [
+        { keys: ['Ctrl', 'K'], description: 'Enfocar entrada rápida' },
+        { keys: ['Ctrl', 'F'], description: 'Enfocar buscador' },
+        { keys: ['/'], description: 'Enfocar buscador sin usar raton' },
+        { keys: ['Ctrl', '1'], description: 'Ir a Bandeja' },
+        { keys: ['Ctrl', '2'], description: 'Ir a Hoy' },
+        { keys: ['Ctrl', '3'], description: 'Ir a Proximos' },
+        { keys: ['Shift', 'F'], description: 'Mostrar u ocultar filtros' },
+        { keys: ['F11'], description: 'Maximizar o restaurar ventana' }
+      ]
+    },
+    {
+      title: 'Tareas',
+      items: [
+        { keys: ['j'], description: 'Mover seleccion hacia abajo' },
+        { keys: ['k'], description: 'Mover seleccion hacia arriba' },
+        { keys: ['x'], description: 'Completar o reabrir tarea seleccionada' },
+        { keys: ['Enter'], description: 'Editar titulo de la tarea seleccionada' },
+        { keys: ['Delete'], description: 'Eliminar tarea seleccionada' },
+        { keys: ['Ctrl', 'Enter'], description: 'Agregar tarea y limpiar la entrada rápida' }
+      ]
+    },
+    {
+      title: 'General',
+      items: [
+        { keys: ['?'], description: 'Abrir o cerrar esta ayuda' },
+        { keys: ['Escape'], description: 'Cerrar modales, paneles, filtros o la ventana' }
+      ]
+    }
+  ];
 
   async function toggleWindowMaximize() {
     if (!browser) return;
@@ -179,6 +283,36 @@
   async function openExternalUrl(url: string) {
     if (!browser) return;
     await window.kitodo.shell.openExternal(url);
+  }
+
+  function persistQuickGuideVisibility() {
+    if (!browser) return;
+    window.localStorage.setItem('kitodo.quickGuideVisible', quickGuideVisible ? '1' : '0');
+  }
+
+  function hideQuickGuide() {
+    quickGuideVisible = false;
+    persistQuickGuideVisibility();
+  }
+
+  function showQuickGuide() {
+    quickGuideVisible = true;
+    persistQuickGuideVisibility();
+  }
+
+  function closeSidebar() {
+    if (!expandedMode) return;
+    sidebarClosing = true;
+    expandedMode = false;
+  }
+
+  function toggleSidebar() {
+    if (expandedMode) {
+      closeSidebar();
+      return;
+    }
+
+    expandedMode = true;
   }
 
   $: selectedProject = selectedProjectId ? projects.find((project) => project.id === selectedProjectId) ?? null : null;
@@ -214,8 +348,9 @@
         (task) => task.id === menuTaskId
       ) ?? null
     : null;
-  $: selectedRecurrenceLabel = recurrenceOptions.find((o) => o.value === (selectedMenuTask?.recurrence ?? null))?.label ?? 'None';
-  $: selectedProjectLabel = selectedMenuTask?.projectName ? `@${selectedMenuTask.projectName}` : 'Inbox';
+  $: selectedRecurrenceLabel =
+    recurrenceOptions.find((o) => o.value === (selectedMenuTask?.recurrence ?? null))?.label ?? 'Sin repetición';
+  $: selectedProjectLabel = selectedMenuTask?.projectName ? `@${selectedMenuTask.projectName}` : 'Bandeja';
   $: keyboardTasks = currentKeyboardTasks();
   $: calendarMonthLabel = calendarBaseDate.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
   $: calendarCells = buildCalendarCells(calendarBaseDate, dueDateDraft);
@@ -227,12 +362,23 @@
   }
   $: selectedGithubAccountLabel =
     githubAccounts.find((a) => a.accountId === selectedGithubAccountId)?.username ?? 'Seleccionar cuenta';
+  $: selectedGithubAccount =
+    githubAccounts.find((a) => a.accountId === selectedGithubAccountId) ?? null;
   $: selectedGithubIntervalLabel = githubSettings
     ? ({ 60: '1m', 300: '5m', 600: '10m', 1800: '30m' }[githubSettings.syncIntervalSec] ?? `${githubSettings.syncIntervalSec}s`)
     : '5m';
   $: selectedGithubProjectLabel = githubSettings?.defaultProjectId
     ? `@${projects.find((p) => p.id === (githubSettings?.defaultProjectId ?? ''))?.name ?? 'Proyecto'}`
-    : 'GitHub Inbox (auto)';
+    : 'Bandeja GitHub (auto)';
+  $: githubTokenKindLabel =
+    selectedGithubAccount?.tokenKind === 'classic'
+      ? 'Token classic'
+      : selectedGithubAccount?.tokenKind === 'fine_grained'
+        ? 'Token fine-grained'
+        : selectedGithubAccount?.tokenKind
+          ? `Token ${selectedGithubAccount.tokenKind}`
+          : 'Sin token detectado';
+  $: githubNotificationsReady = selectedGithubAccount?.tokenKind === 'classic';
 
   function mergeUniqueTasks(groups: TaskDTO[][]): TaskDTO[] {
     const map = new Map<string, TaskDTO>();
@@ -257,6 +403,41 @@
       const haystack = `${task.title} ${task.projectName ?? ''} ${task.labels.join(' ')}`.toLowerCase();
       return haystack.includes(query);
     });
+  }
+
+  function formatRecurrenceLabel(rule: string | null): string {
+    if (!rule) return '';
+    const byRule: Record<string, string> = {
+      daily: 'Cada día',
+      weekly: 'Cada semana',
+      monthly: 'Cada mes',
+      'weekday:mon': 'Cada lunes',
+      'weekday:tue': 'Cada martes',
+      'weekday:wed': 'Cada miércoles',
+      'weekday:thu': 'Cada jueves',
+      'weekday:fri': 'Cada viernes',
+      'weekday:sat': 'Cada sábado',
+      'weekday:sun': 'Cada domingo'
+    };
+
+    if (byRule[rule]) {
+      return byRule[rule];
+    }
+
+    if (rule.startsWith('interval:')) {
+      const [, unit, amountRaw] = rule.split(':');
+      const amount = Number(amountRaw);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return rule;
+      }
+      const singularMap: Record<string, string> = { d: 'día', w: 'semana', m: 'mes' };
+      const pluralMap: Record<string, string> = { d: 'días', w: 'semanas', m: 'meses' };
+      const singular = singularMap[unit] ?? 'unidad';
+      const plural = pluralMap[unit] ?? 'unidades';
+      return `Cada ${amount} ${amount === 1 ? singular : plural}`;
+    }
+
+    return rule;
   }
 
   function currentKeyboardTasks(): TaskDTO[] {
@@ -420,7 +601,7 @@
     githubMessage = '';
     try {
       const result = await githubSyncNow(selectedGithubAccountId);
-      githubMessage = `Sync: +${result.createdTasks} nuevas, ${result.updatedTasks} actualizadas, ${result.closedTasks} cerradas`;
+      githubMessage = `Sincronización: +${result.createdTasks} nuevas, ${result.updatedTasks} actualizadas, ${result.closedTasks} cerradas`;
       await refreshAll();
       await refreshGithubState();
     } catch (e) {
@@ -580,6 +761,35 @@
     if (!undoState) return;
     clearTimeout(undoState.timerId);
     undoState = null;
+  }
+
+  function closeTaskPanel() {
+    menuTaskId = null;
+    recurrenceDropdownOpen = false;
+    projectDropdownOpen = false;
+    datePickerOpen = false;
+    recurrenceMenuOpenUp = false;
+    projectMenuOpenUp = false;
+    datePickerOpenUp = false;
+  }
+
+  function requestDeleteTask(taskId: string) {
+    const task = mergeUniqueTasks([tasksByTab.inbox, tasksByTab.today, tasksByTab.upcoming, overdueTasks, projectTasks]).find(
+      (candidate) => candidate.id === taskId
+    );
+
+    confirmDeleteTaskId = taskId;
+    confirmDeleteTaskTitle = task?.title ?? 'esta tarea';
+    confirmDeleteOpen = true;
+  }
+
+  async function confirmDeleteTask() {
+    if (!confirmDeleteTaskId) return;
+    const taskId = confirmDeleteTaskId;
+    confirmDeleteOpen = false;
+    confirmDeleteTaskId = null;
+    confirmDeleteTaskTitle = '';
+    await onDeleteTask(taskId);
   }
 
   async function onDeleteTask(taskId: string) {
@@ -820,7 +1030,12 @@
   }
 
   function openMenu(task: TaskDTO) {
-    menuTaskId = menuTaskId === task.id ? null : task.id;
+    if (menuTaskId === task.id) {
+      closeTaskPanel();
+      return;
+    }
+
+    menuTaskId = task.id;
     dueDateDraft = task.dueDate ?? '';
     projectDraft = '';
     recurrenceDropdownOpen = false;
@@ -893,7 +1108,7 @@
 
   async function onSelectProject(projectId: string | null) {
     selectedProjectId = projectId;
-    menuTaskId = null;
+    closeTaskPanel();
     await refreshProjectTasks();
   }
 
@@ -991,6 +1206,11 @@
     quickInputRef?.focus();
   }
 
+  function focusSearch() {
+    searchInputRef?.focus();
+    searchInputRef?.select();
+  }
+
   function planTomorrowFromQuickAdd() {
     const suffix = ' due tomorrow';
     if (!quickInput.includes('due ')) {
@@ -1017,7 +1237,7 @@
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      backupNotice = 'Backup exportado.';
+      backupNotice = 'Respaldo exportado.';
     } catch (e) {
       error = String(e);
     } finally {
@@ -1068,6 +1288,10 @@
   }
 
   onMount(() => {
+    if (browser) {
+      quickGuideVisible = window.localStorage.getItem('kitodo.quickGuideVisible') !== '0';
+    }
+
     bootstrap();
     quickInputRef?.focus();
 
@@ -1081,8 +1305,7 @@
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
         event.preventDefault();
-        searchInputRef?.focus();
-        searchInputRef?.select();
+        focusSearch();
         return;
       }
 
@@ -1106,6 +1329,16 @@
 
       if (!event.ctrlKey && !event.metaKey && !isTextInputFocused()) {
         const key = event.key.toLowerCase();
+        if (event.key === '/') {
+          event.preventDefault();
+          focusSearch();
+          return;
+        }
+        if (event.key === '?') {
+          event.preventDefault();
+          helpModalOpen = !helpModalOpen;
+          return;
+        }
         if (key === 'j') {
           event.preventDefault();
           cycleKeyboardSelection(1);
@@ -1134,18 +1367,14 @@
         }
         if ((event.key === 'Delete' || event.key === 'Backspace') && keyboardSelectedTaskId) {
           event.preventDefault();
-          await onDeleteTask(keyboardSelectedTaskId);
+          requestDeleteTask(keyboardSelectedTaskId);
           return;
         }
       }
 
-      if (event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey) {
-        if (expandedMode) {
-          sidebarClosing = true;
-          expandedMode = false;
-        } else {
-          expandedMode = true;
-        }
+      if (event.shiftKey && event.key.toLowerCase() === 'f' && !event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        toggleSidebar();
         return;
       }
 
@@ -1156,6 +1385,26 @@
       }
 
       if (event.key === 'Escape') {
+        if (confirmDeleteOpen) {
+          event.preventDefault();
+          confirmDeleteOpen = false;
+          confirmDeleteTaskId = null;
+          confirmDeleteTaskTitle = '';
+          return;
+        }
+
+        if (githubModalOpen) {
+          event.preventDefault();
+          githubModalOpen = false;
+          return;
+        }
+
+        if (helpModalOpen) {
+          event.preventDefault();
+          helpModalOpen = false;
+          return;
+        }
+
         if (backupModalOpen) {
           event.preventDefault();
           backupModalOpen = false;
@@ -1168,7 +1417,15 @@
           return;
         }
 
-        if (orderDropdownOpen || recurrenceDropdownOpen || projectDropdownOpen || datePickerOpen) {
+        if (
+          orderDropdownOpen ||
+          recurrenceDropdownOpen ||
+          projectDropdownOpen ||
+          datePickerOpen ||
+          githubAccountDropdownOpen ||
+          githubIntervalDropdownOpen ||
+          githubProjectDropdownOpen
+        ) {
           event.preventDefault();
           orderDropdownOpen = false;
           recurrenceDropdownOpen = false;
@@ -1198,6 +1455,18 @@
         if (editingId) {
           event.preventDefault();
           cancelEdit();
+          return;
+        }
+
+        if (menuTaskId) {
+          event.preventDefault();
+          closeTaskPanel();
+          return;
+        }
+
+        if (expandedMode) {
+          event.preventDefault();
+          closeSidebar();
           return;
         }
 
@@ -1251,6 +1520,14 @@
           sidebarClosing = false;
         }}
       >
+        <div class="sidebar-head">
+          <div>
+            <h2>Filtros</h2>
+            <p>Abre o cierra este panel con el botón `Filtros`, `Shift + F` o `Escape`.</p>
+          </div>
+          <button class="icon-button" aria-label="Cerrar filtros" on:click={closeSidebar}>✕</button>
+        </div>
+
         <div class="side-block">
           <h3>Vistas</h3>
           {#each (Object.keys(tabNames) as Tab[]) as tab}
@@ -1282,186 +1559,25 @@
 
         <div class="side-block github-block">
           <h3>GitHub</h3>
-          <button on:click={() => (githubPanelOpen = !githubPanelOpen)}>
-            {githubPanelOpen ? 'Ocultar panel' : 'Mostrar panel'}
-          </button>
-          {#if githubPanelOpen}
-            {#if githubAccounts.length === 0}
-              <input
-                placeholder="ghp_..."
-                bind:value={githubTokenInput}
-                type="password"
-              />
-              <button disabled={githubBusy} on:click={onGithubConnect}>Conectar</button>
-              <small>PAT classic recomendado para notifications.</small>
-            {:else}
-              <div class="context-dropdown" bind:this={githubAccountDropdownRef}>
-                <button
-                  class="context-trigger"
-                  class:open={githubAccountDropdownOpen}
-                  on:click={toggleGithubAccountDropdown}
-                >
-                  {selectedGithubAccountLabel}
-                  <span class="order-chevron">▾</span>
-                </button>
-                {#if githubAccountDropdownOpen}
-                  <div class="context-menu" class:open-up={githubAccountMenuOpenUp} bind:this={githubAccountMenuRef}>
-                    {#each githubAccounts as account}
-                      <button
-                        class:active={selectedGithubAccountId === account.accountId}
-                        on:click={async () => {
-                          selectedGithubAccountId = account.accountId;
-                          githubAccountDropdownOpen = false;
-                          githubAccountMenuOpenUp = false;
-                          await refreshGithubState();
-                        }}
-                      >
-                        {account.username} ({account.tokenKind})
-                      </button>
-                    {/each}
-                  </div>
-                {/if}
-              </div>
-
-              {#if githubSettings}
-                <label class="gh-inline">
-                  <input
-                    type="checkbox"
-                    checked={githubSettings.enabled}
-                    on:change={(e) => onGithubUpdateSettings({ enabled: (e.currentTarget as HTMLInputElement).checked })}
-                  />
-                  Auto sync
-                </label>
-                <label class="gh-inline">
-                  <span>Intervalo</span>
-                  <div class="context-dropdown" bind:this={githubIntervalDropdownRef}>
-                    <button
-                      class="context-trigger"
-                      class:open={githubIntervalDropdownOpen}
-                      on:click={toggleGithubIntervalDropdown}
-                    >
-                      {selectedGithubIntervalLabel}
-                      <span class="order-chevron">▾</span>
-                    </button>
-                    {#if githubIntervalDropdownOpen}
-                      <div class="context-menu" class:open-up={githubIntervalMenuOpenUp} bind:this={githubIntervalMenuRef}>
-                        {#each [
-                          { value: 60, label: '1m' },
-                          { value: 300, label: '5m' },
-                          { value: 600, label: '10m' },
-                          { value: 1800, label: '30m' }
-                        ] as opt}
-                          <button
-                            class:active={githubSettings.syncIntervalSec === opt.value}
-                            on:click={() => {
-                              githubIntervalDropdownOpen = false;
-                              githubIntervalMenuOpenUp = false;
-                              onGithubUpdateSettings({ syncIntervalSec: opt.value });
-                            }}
-                          >
-                            {opt.label}
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                </label>
-                <label class="gh-inline">
-                  <input
-                    type="checkbox"
-                    checked={githubSettings.importPrReviews}
-                    on:change={(e) => onGithubUpdateSettings({ importPrReviews: (e.currentTarget as HTMLInputElement).checked })}
-                  />
-                  PR review
-                </label>
-                <label class="gh-inline">
-                  <input
-                    type="checkbox"
-                    checked={githubSettings.importAssignedIssues}
-                    on:change={(e) => onGithubUpdateSettings({ importAssignedIssues: (e.currentTarget as HTMLInputElement).checked })}
-                  />
-                  Issues assigned
-                </label>
-                <label class="gh-inline">
-                  <input
-                    type="checkbox"
-                    checked={githubSettings.importNotifications}
-                    on:change={(e) => onGithubUpdateSettings({ importNotifications: (e.currentTarget as HTMLInputElement).checked })}
-                  />
-                  Notifications
-                </label>
-
-                <label class="gh-inline">
-                  <span>Proyecto destino</span>
-                  <div class="context-dropdown" bind:this={githubProjectDropdownRef}>
-                    <button
-                      class="context-trigger"
-                      class:open={githubProjectDropdownOpen}
-                      on:click={toggleGithubProjectDropdown}
-                    >
-                      {selectedGithubProjectLabel}
-                      <span class="order-chevron">▾</span>
-                    </button>
-                    {#if githubProjectDropdownOpen}
-                      <div class="context-menu" class:open-up={githubProjectMenuOpenUp} bind:this={githubProjectMenuRef}>
-                        <button
-                          class:active={!githubSettings.defaultProjectId}
-                          on:click={() => {
-                            githubProjectDropdownOpen = false;
-                            githubProjectMenuOpenUp = false;
-                            onGithubUpdateSettings({ defaultProjectId: null });
-                          }}
-                        >
-                          GitHub Inbox (auto)
-                        </button>
-                        {#each projects as project}
-                          <button
-                            class:active={githubSettings.defaultProjectId === project.id}
-                            on:click={() => {
-                              githubProjectDropdownOpen = false;
-                              githubProjectMenuOpenUp = false;
-                              onGithubUpdateSettings({ defaultProjectId: project.id });
-                            }}
-                          >
-                            @{project.name}
-                          </button>
-                        {/each}
-                      </div>
-                    {/if}
-                  </div>
-                </label>
-              {/if}
-
-              <div class="gh-actions">
-                <button disabled={githubBusy} on:click={onGithubSyncNow}>Sync now</button>
-                <button disabled={githubBusy} on:click={onGithubDisconnect}>Desconectar</button>
-              </div>
-
-              <div class="gh-add-repo">
-                <input placeholder="owner/repo" bind:value={githubRepoInput} />
-                <button disabled={githubBusy} on:click={onGithubAddRepo}>Add</button>
-              </div>
-              <div class="gh-repos">
-                {#each githubRepoSubs as sub}
-                  <div class="gh-repo-item">
-                    <span>{sub.owner}/{sub.repo}</span>
-                    <div class="gh-actions">
-                      <button on:click={() => onGithubToggleRepo(sub)}>{sub.enabled ? 'Off' : 'On'}</button>
-                      <button on:click={() => onGithubRemoveRepo(sub)}>✕</button>
-                    </div>
-                  </div>
-                {/each}
-              </div>
-              {#if githubStatus}
-                <small>Last sync: {githubStatus.lastSyncAt ?? 'never'}</small>
-              {/if}
-            {/if}
-            {#if githubMessage}
-              <small>{githubMessage}</small>
-            {/if}
+          {#if githubAccounts.length === 0}
+            <div class="sidebar-badges">
+              <span class="status-badge">Sin cuenta conectada</span>
+              <span class="status-badge">Abre el panel para configurar GitHub</span>
+            </div>
+          {:else}
+            <div class="sidebar-badges">
+              <span class="status-badge ok">{selectedGithubAccountLabel}</span>
+              <span class="status-badge" class:ok={githubSettings?.enabled}>
+                {githubSettings?.enabled ? 'Sync activa' : 'Sync desactivada'}
+              </span>
+              <span class="status-badge">
+                {githubStatus?.lastSyncAt ? `Última sync: ${githubStatus.lastSyncAt}` : 'Sin sincronización'}
+              </span>
+            </div>
           {/if}
         </div>
 
+        <button class="clear-filters" on:click={() => (githubModalOpen = true)}>Mostrar panel de GitHub</button>
         <button class="clear-filters" on:click={clearFilters}>Limpiar filtros</button>
       </aside>
     {/if}
@@ -1480,12 +1596,22 @@
           </label>
         </div>
         <div class="header-actions">
+          <button class="ghost-trigger" on:click={toggleSidebar}>
+            {expandedMode ? 'Ocultar filtros' : 'Filtros'}
+          </button>
+          <button class="ghost-trigger" on:click={() => (helpModalOpen = true)}>
+            Ayuda
+          </button>
           <button class="backup-trigger" on:click={() => {
             backupModalOpen = true;
             backupNotice = '';
           }}>
-            Backup
+            Respaldo
           </button>
+          <div class="window-actions">
+            <button class="ghost-trigger compact" on:click={toggleWindowMaximize}>Maximizar</button>
+            <button class="ghost-trigger compact danger-soft" on:click={closeAppWindow}>Cerrar</button>
+          </div>
           <div class="progress-wrap" title="Progreso del día">
             <span>{todayDoneCount}/{todayTotalCount}</span>
             <div class="progress-bar"><div style={`width:${dayProgress}%`}></div></div>
@@ -1514,10 +1640,44 @@
         <button on:click={() => addTask(true)}>Agregar</button>
       </div>
 
+      {#if quickGuideVisible}
+        <section class="guide-card">
+          <div class="panel-head">
+            <div class="guide-copy">
+              <h2>Crear tareas en una línea</h2>
+              <p>
+                Usa la entrada rápida para combinar título, proyecto, etiquetas, prioridad, fecha y repetición.
+                Los tokens `due` y `every` siguen estando en inglés porque son la sintaxis real del parser.
+              </p>
+            </div>
+            <button class="icon-button" aria-label="Ocultar guía rápida" on:click={hideQuickGuide}>✕</button>
+          </div>
+          <div class="guide-examples">
+            {#each quickAddExamples as example}
+              <button
+                class="example-pill"
+                on:click={() => {
+                  quickInput = example.value;
+                  quickInputRef?.focus();
+                  quickInputRef?.select();
+                }}
+              >
+                <strong>{example.label}</strong>
+                <span>{example.value}</span>
+              </button>
+            {/each}
+          </div>
+          <div class="guide-actions">
+            <span>Filtros: botón `Filtros` o `Shift + F`. Cierre: mismo botón o `Escape`.</span>
+            <button class="ghost-trigger compact" on:click={() => (helpModalOpen = true)}>Ver guía rápida</button>
+          </div>
+        </section>
+      {/if}
+
       <div class="toolbar">
         <div class="tabs">
           <button class:active={currentTab === 'inbox'} on:click={() => switchTab('inbox')}>
-            Inbox ({inboxCount})
+            Bandeja ({inboxCount})
           </button>
           <button class:active={currentTab === 'today'} on:click={() => switchTab('today')}>
             Hoy ({todayCount})
@@ -1549,7 +1709,7 @@
                 class:open={orderDropdownOpen}
                 on:click={toggleOrderDropdown}
               >
-                {projectSortMode === 'manual' ? 'Manual' : 'Auto'}
+                {projectSortMode === 'manual' ? 'Manual' : 'Automático'}
                 <span class="order-chevron">▾</span>
               </button>
 
@@ -1559,7 +1719,7 @@
                     class:active={projectSortMode === 'auto'}
                     on:click={() => onSetProjectSortMode('auto')}
                   >
-                    Auto
+                    Automático
                   </button>
                   <button
                     class:active={projectSortMode === 'manual'}
@@ -1571,7 +1731,7 @@
               {/if}
             </div>
             <button on:click={onRecalculateProjectOrder}>Actualizar/Recalcular</button>
-            <button on:click={onResetProjectToAuto}>Volver a Auto</button>
+            <button on:click={onResetProjectToAuto}>Volver a automático</button>
           </div>
         </div>
       {/if}
@@ -1640,11 +1800,11 @@
                       {/each}
 
                       {#if task.dueDate}
-                        <span class="chip due">Due: {task.dueDate}</span>
+                        <span class="chip due">Vence: {task.dueDate}</span>
                       {/if}
 
                       {#if task.recurrence}
-                        <span class="chip recurrence">{task.recurrence}</span>
+                        <span class="chip recurrence">{formatRecurrenceLabel(task.recurrence)}</span>
                       {/if}
                     </div>
                   </div>
@@ -1660,8 +1820,8 @@
           {:else if currentTab === 'inbox'}
             {#if filteredInbox.length === 0}
               <div class="empty-state">
-                <p class="empty">Inbox vacía. Prueba: <code>Comprar pan @Personal #compras p2</code></p>
-                <button on:click={focusQuickAdd}>Ir a Quick Add</button>
+                <p class="empty">Bandeja vacía. Prueba: <code>Comprar pan @Personal #compras p2</code></p>
+                <button on:click={focusQuickAdd}>Ir a creación rápida</button>
               </div>
             {:else}
               {#each filteredInbox as task (task.id)}
@@ -1693,8 +1853,8 @@
                     <div class="meta-line">
                       {#if task.projectName}<span class="chip project" class:hit-chip={searchQuery.length > 0 && (task.projectName ?? '').toLowerCase().includes(searchQuery)}>@{task.projectName}</span>{/if}
                       {#each task.labels as label}<span class="chip label" class:hit-chip={searchQuery.length > 0 && label.toLowerCase().includes(searchQuery)}>#{label}</span>{/each}
-                      {#if task.dueDate}<span class="chip due">Due: {task.dueDate}</span>{/if}
-                      {#if task.recurrence}<span class="chip recurrence">{task.recurrence}</span>{/if}
+                      {#if task.dueDate}<span class="chip due">Vence: {task.dueDate}</span>{/if}
+                      {#if task.recurrence}<span class="chip recurrence">{formatRecurrenceLabel(task.recurrence)}</span>{/if}
                     </div>
                   </div>
                   <span class="priority-badge">P{task.priority}</span>
@@ -1734,8 +1894,8 @@
                     <div class="meta-line">
                       {#if task.projectName}<span class="chip project" class:hit-chip={searchQuery.length > 0 && (task.projectName ?? '').toLowerCase().includes(searchQuery)}>@{task.projectName}</span>{/if}
                       {#each task.labels as label}<span class="chip label" class:hit-chip={searchQuery.length > 0 && label.toLowerCase().includes(searchQuery)}>#{label}</span>{/each}
-                      {#if task.dueDate}<span class="chip due">Due: {task.dueDate}</span>{/if}
-                      {#if task.recurrence}<span class="chip recurrence">{task.recurrence}</span>{/if}
+                      {#if task.dueDate}<span class="chip due">Vence: {task.dueDate}</span>{/if}
+                      {#if task.recurrence}<span class="chip recurrence">{formatRecurrenceLabel(task.recurrence)}</span>{/if}
                     </div>
                   </div>
                   <span class="priority-badge">P{task.priority}</span>
@@ -1775,8 +1935,8 @@
                     <div class="meta-line">
                       {#if task.projectName}<span class="chip project" class:hit-chip={searchQuery.length > 0 && (task.projectName ?? '').toLowerCase().includes(searchQuery)}>@{task.projectName}</span>{/if}
                       {#each task.labels as label}<span class="chip label" class:hit-chip={searchQuery.length > 0 && label.toLowerCase().includes(searchQuery)}>#{label}</span>{/each}
-                      {#if task.dueDate}<span class="chip due">Due: {task.dueDate}</span>{/if}
-                      {#if task.recurrence}<span class="chip recurrence">{task.recurrence}</span>{/if}
+                      {#if task.dueDate}<span class="chip due">Vence: {task.dueDate}</span>{/if}
+                      {#if task.recurrence}<span class="chip recurrence">{formatRecurrenceLabel(task.recurrence)}</span>{/if}
                     </div>
                   </div>
                   <span class="priority-badge">P{task.priority}</span>
@@ -1816,8 +1976,8 @@
                     <div class="meta-line">
                       {#if task.projectName}<span class="chip project" class:hit-chip={searchQuery.length > 0 && (task.projectName ?? '').toLowerCase().includes(searchQuery)}>@{task.projectName}</span>{/if}
                       {#each task.labels as label}<span class="chip label" class:hit-chip={searchQuery.length > 0 && label.toLowerCase().includes(searchQuery)}>#{label}</span>{/each}
-                      {#if task.dueDate}<span class="chip due">Due: {task.dueDate}</span>{/if}
-                      {#if task.recurrence}<span class="chip recurrence">{task.recurrence}</span>{/if}
+                      {#if task.dueDate}<span class="chip due">Vence: {task.dueDate}</span>{/if}
+                      {#if task.recurrence}<span class="chip recurrence">{formatRecurrenceLabel(task.recurrence)}</span>{/if}
                     </div>
                   </div>
                   <span class="priority-badge">P{task.priority}</span>
@@ -1844,7 +2004,10 @@
 
         <aside class="context-panel" transition:fade={{ duration: 120 }}>
           {#if selectedMenuTask}
-            <h3>Acciones</h3>
+            <div class="panel-head">
+              <h3>Acciones</h3>
+              <button class="icon-button" aria-label="Cerrar panel de tarea" on:click={closeTaskPanel}>✕</button>
+            </div>
             <p class="context-title">{selectedMenuTask.title}</p>
 
             <div class="menu-group">
@@ -1859,8 +2022,8 @@
             <div class="menu-group">
               <p>Fecha</p>
               <div class="menu-inline">
-                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'today')}>Today</button>
-                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'tomorrow')}>Tomorrow</button>
+                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'today')}>Hoy</button>
+                <button on:click={() => onPickDueShortcut(selectedMenuTask.id, 'tomorrow')}>Mañana</button>
                 <button on:click={() => onPickDueShortcut(selectedMenuTask.id, null)}>Quitar</button>
               </div>
               <div class="date-picker" bind:this={datePickerRef}>
@@ -1946,7 +2109,7 @@
                       class:active={selectedMenuTask.projectId === null}
                       on:click={() => onMoveProject(selectedMenuTask.id, null)}
                     >
-                      Inbox
+                      Bandeja
                     </button>
                     {#each projects as project}
                       <button
@@ -1965,13 +2128,15 @@
               </div>
             </div>
 
-            <button class="danger" on:click={() => onDeleteTask(selectedMenuTask.id)}>Eliminar</button>
+            <button class="danger" on:click={() => requestDeleteTask(selectedMenuTask.id)}>Eliminar</button>
             {#if selectedMenuTask.externalUrl}
               <button on:click={() => openExternalUrl(selectedMenuTask.externalUrl!)}>Abrir en GitHub</button>
             {/if}
           {:else}
             <h3>Panel de tarea</h3>
-            <p class="context-hint">Selecciona una tarea con `⋯` para editar prioridad, fecha, recurrencia, proyecto o eliminar.</p>
+            <p class="context-hint">
+              Selecciona una tarea con `⋯` para editar prioridad, fecha, recurrencia o proyecto. Cuando abras una tarea, podrás cerrar este panel con `✕` o `Escape`.
+            </p>
           {/if}
         </aside>
       </div>
@@ -1991,14 +2156,54 @@
     </div>
   {/if}
 
+  {#if confirmDeleteOpen}
+    <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
+      <div class="confirm-modal" transition:fly={{ y: 10, duration: 160 }}>
+        <div class="modal-head">
+          <h4>Confirmar eliminación</h4>
+          <button
+            class="icon-button"
+            aria-label="Cancelar eliminación"
+            on:click={() => {
+              confirmDeleteOpen = false;
+              confirmDeleteTaskId = null;
+              confirmDeleteTaskTitle = '';
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        <p>
+          Vas a eliminar <strong>{confirmDeleteTaskTitle}</strong>. Después podrás deshacerlo durante unos segundos.
+        </p>
+        <div class="confirm-actions">
+          <button
+            class="button-secondary"
+            on:click={() => {
+              confirmDeleteOpen = false;
+              confirmDeleteTaskId = null;
+              confirmDeleteTaskTitle = '';
+            }}
+          >
+            Cancelar
+          </button>
+          <button class="button-danger" on:click={confirmDeleteTask}>Eliminar tarea</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   {#if confirmResetOpen}
     <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
       <div class="confirm-modal" transition:fly={{ y: 10, duration: 160 }}>
-        <h4>¿Reiniciar orden manual?</h4>
+        <div class="modal-head">
+          <h4>¿Reiniciar orden manual?</h4>
+          <button class="icon-button" aria-label="Cerrar confirmación" on:click={() => (confirmResetOpen = false)}>✕</button>
+        </div>
         <p>Se limpiará el orden manual del proyecto y volverá a orden automático.</p>
         <div class="confirm-actions">
-          <button on:click={() => (confirmResetOpen = false)}>Cancelar</button>
-          <button class="danger" on:click={confirmResetProjectToAuto}>Confirmar</button>
+          <button class="button-secondary" on:click={() => (confirmResetOpen = false)}>Cancelar</button>
+          <button class="button-danger" on:click={confirmResetProjectToAuto}>Confirmar</button>
         </div>
       </div>
     </div>
@@ -2007,11 +2212,14 @@
   {#if backupModalOpen}
     <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
       <div class="confirm-modal backup-modal" transition:fly={{ y: 10, duration: 160 }}>
-        <h4>Exportar / importar tareas</h4>
+        <div class="modal-head">
+          <h4>Exportar / importar tareas</h4>
+          <button class="icon-button" aria-label="Cerrar respaldo" on:click={() => (backupModalOpen = false)}>✕</button>
+        </div>
         <p>Genera un JSON con tus tareas activas y completadas, o importa un backup existente haciendo merge por ID.</p>
         <div class="backup-actions">
-          <button disabled={backupBusy} on:click={onExportBackup}>Exportar JSON</button>
-          <button disabled={backupBusy} on:click={triggerImportBackupFile}>Importar archivo</button>
+          <button class="button-primary" disabled={backupBusy} on:click={onExportBackup}>Exportar JSON</button>
+          <button class="button-secondary" disabled={backupBusy} on:click={triggerImportBackupFile}>Importar archivo</button>
           <input
             bind:this={backupFileInputRef}
             class="hidden-file"
@@ -2029,10 +2237,299 @@
           <p class="backup-notice">{backupNotice}</p>
         {/if}
         <div class="confirm-actions">
-          <button on:click={() => (backupModalOpen = false)}>Cerrar</button>
-          <button disabled={backupBusy || !backupJsonDraft.trim()} on:click={onImportBackupDraft}>
+          <button class="button-secondary" on:click={() => (backupModalOpen = false)}>Cerrar</button>
+          <button class="button-primary" disabled={backupBusy || !backupJsonDraft.trim()} on:click={onImportBackupDraft}>
             Importar JSON pegado
           </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if githubModalOpen}
+    <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
+      <div class="confirm-modal github-modal" transition:fly={{ y: 10, duration: 160 }}>
+        <div class="modal-head">
+          <h4>Configuración de GitHub</h4>
+          <button class="icon-button" aria-label="Cerrar configuración de GitHub" on:click={() => (githubModalOpen = false)}>✕</button>
+        </div>
+
+        <p>
+          Usa este panel para conectar tu cuenta, elegir qué importar y activar notificaciones de GitHub dentro de KitoDo.
+        </p>
+
+        <section class="github-setup-card">
+          <h5>Antes de conectar</h5>
+          <div class="github-setup-list">
+            {#each githubSetupItems as item}
+              <div class="github-setup-item">
+                <strong>{item.title}</strong>
+                <span>{item.description}</span>
+              </div>
+            {/each}
+          </div>
+          <div class="github-doc-links">
+            {#each githubDocLinks as link}
+              <button class="ghost-trigger compact" on:click={() => openExternalUrl(link.url)}>{link.label}</button>
+            {/each}
+          </div>
+        </section>
+
+        {#if githubAccounts.length === 0}
+          <section class="github-config-grid">
+            <label class="github-field">
+              <span>Personal access token</span>
+              <input placeholder="ghp_..." bind:value={githubTokenInput} type="password" />
+            </label>
+            <div class="github-status-line">
+              <small>
+                Para importar notificaciones usa un token classic. Si solo conectas un token fine-grained, KitoDo podrá quedar limitado.
+              </small>
+            </div>
+            <div class="confirm-actions">
+              <button class="button-primary" disabled={githubBusy || !githubTokenInput.trim()} on:click={onGithubConnect}>Conectar GitHub</button>
+            </div>
+          </section>
+        {:else}
+          <section class="github-config-grid">
+            <div class="github-status-card">
+              <div class="github-status-head">
+                <strong>{selectedGithubAccountLabel}</strong>
+                <div class="status-badges">
+                  <span class="status-badge" class:ok={selectedGithubAccount?.tokenKind === 'classic'}>
+                    {githubTokenKindLabel}
+                  </span>
+                  <span class="status-badge" class:ok={githubSettings?.enabled}>
+                    {githubSettings?.enabled ? 'Sync activa' : 'Sync desactivada'}
+                  </span>
+                  <span class="status-badge" class:ok={githubNotificationsReady}>
+                    {githubNotificationsReady ? 'Notificaciones listas' : 'Notificaciones limitadas'}
+                  </span>
+                </div>
+              </div>
+              <div class="github-status-list">
+                <span>
+                  {githubNotificationsReady
+                    ? 'Tu token permite usar la API de notifications.'
+                    : 'Para importar notificaciones necesitas un personal access token classic.'}
+                </span>
+                <span>
+                  {githubStatus?.lastSyncAt
+                    ? `Última sincronización: ${githubStatus.lastSyncAt}`
+                    : 'Todavía no se ha ejecutado ninguna sincronización.'}
+                </span>
+                {#if githubStatus?.lastError}
+                  <span class="status-error">Último error: {githubStatus.lastError}</span>
+                {/if}
+              </div>
+            </div>
+
+            <div class="context-dropdown" bind:this={githubAccountDropdownRef}>
+              <button
+                class="context-trigger"
+                class:open={githubAccountDropdownOpen}
+                on:click={toggleGithubAccountDropdown}
+              >
+                {selectedGithubAccountLabel}
+                <span class="order-chevron">▾</span>
+              </button>
+              {#if githubAccountDropdownOpen}
+                <div class="context-menu" class:open-up={githubAccountMenuOpenUp} bind:this={githubAccountMenuRef}>
+                  {#each githubAccounts as account}
+                    <button
+                      class:active={selectedGithubAccountId === account.accountId}
+                      on:click={async () => {
+                        selectedGithubAccountId = account.accountId;
+                        githubAccountDropdownOpen = false;
+                        githubAccountMenuOpenUp = false;
+                        await refreshGithubState();
+                      }}
+                    >
+                      {account.username} ({account.tokenKind})
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+
+            {#if githubSettings}
+              <label class="gh-inline">
+                <input
+                  type="checkbox"
+                  checked={githubSettings.enabled}
+                  on:change={(e) => onGithubUpdateSettings({ enabled: (e.currentTarget as HTMLInputElement).checked })}
+                />
+                Sincronización automática
+              </label>
+              <label class="gh-inline">
+                <span>Intervalo</span>
+                <div class="context-dropdown" bind:this={githubIntervalDropdownRef}>
+                  <button
+                    class="context-trigger"
+                    class:open={githubIntervalDropdownOpen}
+                    on:click={toggleGithubIntervalDropdown}
+                  >
+                    {selectedGithubIntervalLabel}
+                    <span class="order-chevron">▾</span>
+                  </button>
+                  {#if githubIntervalDropdownOpen}
+                    <div class="context-menu" class:open-up={githubIntervalMenuOpenUp} bind:this={githubIntervalMenuRef}>
+                      {#each [
+                        { value: 60, label: '1m' },
+                        { value: 300, label: '5m' },
+                        { value: 600, label: '10m' },
+                        { value: 1800, label: '30m' }
+                      ] as opt}
+                        <button
+                          class:active={githubSettings.syncIntervalSec === opt.value}
+                          on:click={() => {
+                            githubIntervalDropdownOpen = false;
+                            githubIntervalMenuOpenUp = false;
+                            onGithubUpdateSettings({ syncIntervalSec: opt.value });
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </label>
+              <label class="gh-inline">
+                <input
+                  type="checkbox"
+                  checked={githubSettings.importPrReviews}
+                  on:change={(e) => onGithubUpdateSettings({ importPrReviews: (e.currentTarget as HTMLInputElement).checked })}
+                />
+                Revisiones de PR
+              </label>
+              <label class="gh-inline">
+                <input
+                  type="checkbox"
+                  checked={githubSettings.importAssignedIssues}
+                  on:change={(e) => onGithubUpdateSettings({ importAssignedIssues: (e.currentTarget as HTMLInputElement).checked })}
+                />
+                Issues asignadas
+              </label>
+              <label class="gh-inline">
+                <input
+                  type="checkbox"
+                  checked={githubSettings.importNotifications}
+                  on:change={(e) => onGithubUpdateSettings({ importNotifications: (e.currentTarget as HTMLInputElement).checked })}
+                />
+                Notificaciones de GitHub
+              </label>
+
+              <label class="gh-inline">
+                <span>Proyecto destino</span>
+                <div class="context-dropdown" bind:this={githubProjectDropdownRef}>
+                  <button
+                    class="context-trigger"
+                    class:open={githubProjectDropdownOpen}
+                    on:click={toggleGithubProjectDropdown}
+                  >
+                    {selectedGithubProjectLabel}
+                    <span class="order-chevron">▾</span>
+                  </button>
+                  {#if githubProjectDropdownOpen}
+                    <div class="context-menu" class:open-up={githubProjectMenuOpenUp} bind:this={githubProjectMenuRef}>
+                      <button
+                        class:active={!githubSettings.defaultProjectId}
+                        on:click={() => {
+                          githubProjectDropdownOpen = false;
+                          githubProjectMenuOpenUp = false;
+                          onGithubUpdateSettings({ defaultProjectId: null });
+                        }}
+                      >
+                        Bandeja GitHub (auto)
+                      </button>
+                      {#each projects as project}
+                        <button
+                          class:active={githubSettings.defaultProjectId === project.id}
+                          on:click={() => {
+                            githubProjectDropdownOpen = false;
+                            githubProjectMenuOpenUp = false;
+                            onGithubUpdateSettings({ defaultProjectId: project.id });
+                          }}
+                        >
+                          @{project.name}
+                        </button>
+                      {/each}
+                    </div>
+                  {/if}
+                </div>
+              </label>
+            {/if}
+
+            <div class="gh-actions">
+              <button class="button-primary" disabled={githubBusy} on:click={onGithubSyncNow}>Sincronizar ahora</button>
+              <button class="button-secondary" disabled={githubBusy} on:click={onGithubDisconnect}>Desconectar</button>
+            </div>
+
+            <div class="gh-add-repo">
+              <input class="github-repo-input" placeholder="owner/repo" bind:value={githubRepoInput} />
+              <button class="button-primary" disabled={githubBusy} on:click={onGithubAddRepo}>Añadir</button>
+            </div>
+            <div class="gh-repos">
+              {#each githubRepoSubs as sub}
+                <div class="gh-repo-item">
+                  <span>{sub.owner}/{sub.repo}</span>
+                  <div class="gh-actions">
+                    <button class="button-secondary compact-action" on:click={() => onGithubToggleRepo(sub)}>
+                      {sub.enabled ? 'Desactivar' : 'Activar'}
+                    </button>
+                    <button class="button-danger compact-action" on:click={() => onGithubRemoveRepo(sub)}>Quitar</button>
+                  </div>
+                </div>
+              {/each}
+            </div>
+          </section>
+        {/if}
+
+        {#if githubMessage}
+          <p class="backup-notice">{githubMessage}</p>
+        {/if}
+
+        <div class="confirm-actions">
+          <button class="button-secondary" on:click={() => (githubModalOpen = false)}>Cerrar</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if helpModalOpen}
+    <div class="modal-backdrop" transition:fade={{ duration: 120 }}>
+      <div class="confirm-modal help-modal" transition:fly={{ y: 10, duration: 160 }}>
+        <div class="modal-head">
+          <h4>Guía rápida de KitoDo</h4>
+          <button class="icon-button" aria-label="Cerrar ayuda" on:click={() => (helpModalOpen = false)}>✕</button>
+        </div>
+        <p>
+          KitoDo está pensado para capturar tareas rápido y luego refinarlas desde filtros y el panel lateral.
+          Los atajos globales no se disparan mientras escribes en un campo de texto.
+        </p>
+        <div class="shortcut-sections">
+          {#each shortcutSections as section}
+            <section class="shortcut-section">
+              <h5>{section.title}</h5>
+              <div class="shortcut-list">
+                {#each section.items as item}
+                  <div class="shortcut-row">
+                    <div class="shortcut-keys">
+                      {#each item.keys as key}
+                        <kbd>{key}</kbd>
+                      {/each}
+                    </div>
+                    <span>{item.description}</span>
+                  </div>
+                {/each}
+              </div>
+            </section>
+          {/each}
+        </div>
+        <div class="confirm-actions">
+          <button class="ghost-trigger compact" on:click={showQuickGuide}>Mostrar guía</button>
+          <button on:click={() => (helpModalOpen = false)}>Cerrar</button>
         </div>
       </div>
     </div>
@@ -2096,6 +2593,33 @@
     scrollbar-color: rgba(192, 75, 255, 0.62) rgba(255, 255, 255, 0.05);
   }
 
+  .sidebar-head,
+  .panel-head,
+  .modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .sidebar-head {
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .sidebar-head h2 {
+    margin: 0;
+    font-size: 0.95rem;
+    letter-spacing: 0.04em;
+  }
+
+  .sidebar-head p {
+    margin: 4px 0 0;
+    color: var(--k-muted);
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
   .side-block {
     display: grid;
     gap: 6px;
@@ -2137,6 +2661,12 @@
 
   .github-block {
     gap: 8px;
+  }
+
+  .sidebar-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
   .gh-inline {
@@ -2227,6 +2757,110 @@
     white-space: nowrap;
   }
 
+  .ghost-trigger {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--k-text);
+    padding: 8px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .ghost-trigger.compact {
+    padding: 8px 10px;
+  }
+
+  .button-primary,
+  .button-secondary,
+  .button-danger {
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: var(--k-text);
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease;
+  }
+
+  .button-primary {
+    background: linear-gradient(135deg, rgba(166, 12, 219, 0.55), rgba(192, 75, 255, 0.42));
+    border-color: rgba(192, 75, 255, 0.52);
+    color: #f4eaff;
+    box-shadow: 0 0 16px rgba(192, 75, 255, 0.16);
+  }
+
+  .button-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.14);
+  }
+
+  .button-danger {
+    background: rgba(255, 120, 145, 0.12);
+    border-color: rgba(255, 120, 145, 0.35);
+    color: #ffd7e1;
+  }
+
+  .button-primary:hover,
+  .button-secondary:hover,
+  .button-danger:hover {
+    transform: translateY(-1px);
+  }
+
+  .button-primary:hover {
+    box-shadow: 0 0 18px rgba(192, 75, 255, 0.22);
+  }
+
+  .button-secondary:hover {
+    border-color: rgba(192, 75, 255, 0.45);
+    background: rgba(192, 75, 255, 0.1);
+  }
+
+  .button-danger:hover {
+    border-color: rgba(255, 120, 145, 0.55);
+    background: rgba(255, 120, 145, 0.18);
+  }
+
+  .button-primary:disabled,
+  .button-secondary:disabled,
+  .button-danger:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .compact-action {
+    padding: 7px 10px;
+    min-height: 34px;
+    font-size: 0.78rem;
+  }
+
+  .danger-soft {
+    border-color: rgba(255, 120, 145, 0.4);
+    color: #ffd4de;
+  }
+
+  .window-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .icon-button {
+    min-width: 34px;
+    min-height: 34px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--k-text);
+    cursor: pointer;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    flex: 0 0 auto;
+  }
+
   .progress-bar {
     margin-top: 4px;
     width: 118px;
@@ -2280,6 +2914,66 @@
     padding: 0 14px;
     font-weight: 600;
     background: linear-gradient(135deg, rgba(166, 12, 219, 0.52), rgba(192, 75, 255, 0.44));
+  }
+
+  .guide-card {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(192, 75, 255, 0.2);
+    background:
+      linear-gradient(135deg, rgba(192, 75, 255, 0.08), rgba(137, 198, 255, 0.05)),
+      rgba(255, 255, 255, 0.03);
+  }
+
+  .guide-copy h2 {
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  .guide-copy p {
+    margin: 6px 0 0;
+    color: var(--k-muted);
+    font-size: 0.86rem;
+    line-height: 1.45;
+  }
+
+  .guide-examples {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .example-pill {
+    display: grid;
+    gap: 4px;
+    text-align: left;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--k-text);
+    padding: 10px;
+  }
+
+  .example-pill strong {
+    font-size: 0.8rem;
+  }
+
+  .example-pill span {
+    color: var(--k-muted);
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+  }
+
+  .guide-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--k-muted);
+    font-size: 0.82rem;
   }
 
   .toolbar {
@@ -3029,6 +3723,203 @@
     width: min(680px, 94vw);
   }
 
+  .help-modal {
+    width: min(760px, 94vw);
+  }
+
+  .github-modal {
+    width: min(760px, 94vw);
+    max-height: min(88vh, 920px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: rgba(192, 75, 255, 0.56) rgba(255, 255, 255, 0.05);
+  }
+
+  .github-config-grid {
+    display: grid;
+    gap: 10px;
+  }
+
+  .github-field {
+    display: grid;
+    gap: 6px;
+    color: var(--k-muted);
+    font-size: 0.84rem;
+  }
+
+  .github-field input {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--k-text);
+    padding: 10px 12px;
+  }
+
+  .github-repo-input {
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(10, 10, 14, 0.7);
+    color: var(--k-text);
+    padding: 11px 12px;
+    outline: none;
+  }
+
+  .github-repo-input:focus {
+    border-color: rgba(192, 75, 255, 0.7);
+    box-shadow: 0 0 0 3px rgba(166, 12, 219, 0.2);
+  }
+
+  .github-setup-card {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(137, 198, 255, 0.22);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .github-status-card {
+    display: grid;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(192, 75, 255, 0.24);
+    background:
+      linear-gradient(135deg, rgba(192, 75, 255, 0.08), rgba(137, 198, 255, 0.05)),
+      rgba(255, 255, 255, 0.03);
+  }
+
+  .github-status-head {
+    display: grid;
+    gap: 8px;
+  }
+
+  .github-status-head strong {
+    font-size: 0.92rem;
+  }
+
+  .status-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .status-badge {
+    border-radius: 999px;
+    padding: 5px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--k-muted);
+    font-size: 0.78rem;
+  }
+
+  .status-badge.ok {
+    border-color: rgba(155, 255, 184, 0.4);
+    color: #c9ffd8;
+    background: rgba(64, 120, 78, 0.2);
+  }
+
+  .github-status-list {
+    display: grid;
+    gap: 6px;
+    color: var(--k-muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .status-error {
+    color: #ffc4d3;
+  }
+
+  .github-setup-card h5 {
+    margin: 0;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--k-muted);
+  }
+
+  .github-setup-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .github-setup-item {
+    display: grid;
+    gap: 4px;
+  }
+
+  .github-setup-item strong {
+    font-size: 0.88rem;
+  }
+
+  .github-setup-item span,
+  .github-status-line small {
+    color: var(--k-muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+  }
+
+  .github-doc-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .shortcut-sections {
+    display: grid;
+    gap: 12px;
+  }
+
+  .shortcut-section {
+    display: grid;
+    gap: 8px;
+  }
+
+  .shortcut-section h5 {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--k-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .shortcut-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .shortcut-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+
+  .shortcut-row span {
+    color: var(--k-text);
+    font-size: 0.9rem;
+  }
+
+  .shortcut-keys {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  kbd {
+    border-radius: 8px;
+    border: 1px solid rgba(192, 75, 255, 0.32);
+    background: linear-gradient(180deg, rgba(40, 26, 54, 0.96), rgba(21, 16, 30, 0.96));
+    color: #f3e8ff;
+    padding: 5px 8px;
+    font: inherit;
+    font-size: 0.8rem;
+    line-height: 1;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  }
+
   .backup-actions {
     display: flex;
     gap: 8px;
@@ -3092,6 +3983,10 @@
       max-height: none;
     }
 
+    .guide-examples {
+      grid-template-columns: 1fr;
+    }
+
     .content {
       order: 1;
       grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
@@ -3153,6 +4048,13 @@
       align-items: stretch;
     }
 
+    .window-actions,
+    .guide-actions {
+      justify-content: stretch;
+      flex-direction: column;
+      align-items: stretch;
+    }
+
     .header-left {
       justify-items: stretch;
     }
@@ -3169,6 +4071,12 @@
     }
 
     .backup-trigger {
+      width: 100%;
+      min-height: 42px;
+    }
+
+    .ghost-trigger,
+    .icon-button {
       width: 100%;
       min-height: 42px;
     }
@@ -3273,6 +4181,13 @@
       flex: 1 1 120px;
     }
 
+    .sidebar-head,
+    .panel-head,
+    .modal-head {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
     .date-picker-menu {
       left: 50%;
       transform: translateX(-50%);
@@ -3288,8 +4203,31 @@
       width: min(94vw, 680px);
     }
 
+    .help-modal {
+      width: min(94vw, 760px);
+    }
+
+    .github-modal {
+      width: min(94vw, 760px);
+      max-height: min(90vh, 920px);
+    }
+
     .backup-textarea {
       min-height: 180px;
+    }
+
+    .shortcut-row {
+      grid-template-columns: 1fr;
+      gap: 6px;
+    }
+
+    .github-doc-links {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .status-badges {
+      flex-direction: column;
     }
 
     .snackbar {
@@ -3314,7 +4252,8 @@
     .project-actions button,
     .context-panel button,
     .backup-actions button,
-    .confirm-actions button {
+    .confirm-actions button,
+    .example-pill {
       width: 100%;
     }
 
