@@ -191,6 +191,96 @@ El script:
 - compila `kitodo-server` en release
 - empaqueta con `electron-builder`
 
+Note: on some Linux setups, the packaged AppImage may require additional launch flags related to GPU rendering or Wayland/X11 selection. See Troubleshooting below.
+
+## Troubleshooting
+
+### Known Linux AppImage Rendering Issue
+
+On some Linux environments, the packaged Electron AppImage may fail to render correctly on launch.
+
+Typical symptoms include:
+
+- the app does not open
+- a blank window appears
+- the app crashes on launch
+- the terminal shows repeated GPU process restart messages
+
+This does not necessarily mean there is a functional bug in KitoDo itself. In the cases seen so far, the behavior looks more like an environment-specific rendering issue related to Electron/Chromium, Wayland, GPU acceleration, graphics drivers, or compositor compatibility.
+
+This is more likely on `NVIDIA + Wayland` setups, but it can also happen on other Linux environments depending on driver and compositor support.
+
+Representative log output may look like this:
+
+```text
+ERROR:gbm_pixmap_wayland.cc(...) Cannot create bo with format=RGBA_8888 and usage=SCANOUT
+ERROR:gbm_pixmap_wayland.cc(...) Cannot create bo with format=RGBA_8888 and usage=GPU_READ
+ERROR:shared_image_factory.cc(...) CreateSharedImage: could not create backing.
+ERROR:shared_image_manager.cc(...) ProduceSkia: Trying to produce a Skia representation from a non-existent mailbox.
+ERROR:gpu_service_impl.cc(...) Exiting GPU process because some drivers can't recover from errors.
+ERROR:gpu_process_host.cc(...) GPU process exited unexpectedly
+```
+
+What this usually means in practice:
+
+- Electron started, but Chromium could not initialize a stable GPU rendering path
+- the failure is typically in the graphics stack, not in KitoDo's business logic
+- Wayland, GPU acceleration, AppImage packaging, and driver support can all influence the result
+
+#### Things to try
+
+Run the AppImage with GPU disabled:
+
+```bash
+./KitoDo_x86_64.AppImage --disable-gpu
+```
+
+This disables GPU acceleration and forces software rendering.
+
+Force X11 instead of Wayland:
+
+```bash
+./KitoDo_x86_64.AppImage --ozone-platform=x11
+```
+
+This tells Chromium/Electron to use the X11 backend instead of Wayland.
+
+Or:
+
+```bash
+ELECTRON_OZONE_PLATFORM_HINT=x11 ./KitoDo_x86_64.AppImage
+```
+
+This sets an environment hint so Electron prefers X11 for that launch.
+
+Optionally test explicit Wayland:
+
+```bash
+./KitoDo_x86_64.AppImage --enable-features=UseOzonePlatform --ozone-platform=wayland
+```
+
+This forces an explicit Wayland path, which can help confirm whether the issue is backend-specific.
+
+Optional alternative:
+
+```bash
+./KitoDo_x86_64.AppImage --disable-gpu-compositing
+```
+
+This keeps the app on the GPU path where possible, but disables GPU compositing.
+
+If the AppImage works with `--disable-gpu` or with an X11 launch mode, the issue is almost certainly related to the graphics stack rather than KitoDo's internal business logic.
+
+#### When reporting this issue, please include
+
+- Linux distribution and version
+- desktop environment or compositor
+- whether the session is `X11` or `Wayland`
+- GPU model
+- driver version
+- the full launch command used
+- terminal output
+
 ## Releases con GitHub Actions
 
 El workflow [release-appimage.yml](/home/kitotsu/Programacion/Personal/KitoDo/.github/workflows/release-appimage.yml) se ejecuta en tags `v*` y adjunta un `.AppImage` al release.
